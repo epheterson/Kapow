@@ -423,27 +423,27 @@ function startRound(state) {
   state.drawnCard = null;
   state.drawnFromDiscard = false;
 
-  // Human player (index 0) always reveals first.
-  // For the playing phase, non-dealer goes first in round 1,
-  // or the player who went out first in the prior round.
-  var firstPlayer = 0;
-  var playingFirstPlayer;
+  // Determine who goes first
+  var firstPlayer;
   if (state.round === 1) {
-    playingFirstPlayer = (state.dealerIndex + 1) % playerCount;
+    firstPlayer = (state.dealerIndex + 1) % playerCount;
   } else if (state.previousFirstOut != null) {
-    playingFirstPlayer = state.previousFirstOut;
+    firstPlayer = state.previousFirstOut;
   } else {
-    playingFirstPlayer = (state.dealerIndex + 1) % playerCount;
+    firstPlayer = (state.dealerIndex + 1) % playerCount;
   }
 
   state.firstOutPlayer = null;
   state.finalTurnsRemaining = 0;
-  state.phase = 'firstTurn';
+  state.phase = 'playing';
   state.firstTurnReveals = 0;
-  state.playersRevealed = 0;
-  state.roundFirstPlayer = playingFirstPlayer;
+  // Track which players still need to reveal 2 cards on their first turn
+  state.needsFirstReveal = [];
+  for (var i = 0; i < playerCount; i++) {
+    state.needsFirstReveal.push(true);
+  }
   state.currentPlayer = firstPlayer;
-  state.message = 'Reveal 2 cards to begin.';
+  state.message = 'Reveal 2 cards to start your turn.';
 
   return state;
 }
@@ -454,31 +454,10 @@ function handleFirstTurnReveal(state, triadIndex, position) {
   state.firstTurnReveals++;
 
   if (state.firstTurnReveals >= 2) {
+    // Done revealing — this player can now draw a card
     state.firstTurnReveals = 0;
-    state.playersRevealed = (state.playersRevealed || 0) + 1;
-
-    // When the human finishes revealing, immediately have the AI reveal too
-    if (state.currentPlayer === 0 && state.playersRevealed < state.players.length) {
-      // AI reveals instantly (no separate turn)
-      var aiReveals = aiFirstTurnReveals(state.players[1].hand);
-      state.currentPlayer = 1;
-      for (var i = 0; i < aiReveals.length; i++) {
-        revealCard(state.players[1].hand, aiReveals[i].triadIndex, aiReveals[i].position);
-      }
-      state.firstTurnReveals = 0;
-      state.playersRevealed++;
-    }
-
-    if (state.playersRevealed >= state.players.length) {
-      // All players done revealing - start playing
-      state.phase = 'playing';
-      state.currentPlayer = state.roundFirstPlayer;
-      state.playersRevealed = 0;
-      state.message = playerTurnMessage(state.players[state.currentPlayer].name) + '. Draw a card.';
-    } else {
-      state.currentPlayer = (state.currentPlayer + 1) % state.players.length;
-      state.message = state.players[state.currentPlayer].name + ': Reveal 2 cards.';
-    }
+    state.needsFirstReveal[state.currentPlayer] = false;
+    state.message = playerTurnMessage(player.name) + '. Draw a card.';
   } else {
     state.message = 'Reveal 1 more card.';
   }
@@ -587,15 +566,15 @@ function advanceToNextPlayer(state) {
   }
 
   // On a player's final turn, reveal all their remaining face-down cards
-  // so they can see (and potentially discard) hidden KAPOW! cards
   if (state.phase === 'finalTurns') {
     var nextPlayer = state.players[state.currentPlayer];
     revealAllCards(nextPlayer.hand);
-    // Check if revealing cards completed any triads
     checkAndDiscardTriads(state, state.currentPlayer);
     state.message = playerTurnMessage(nextPlayer.name) + '. Final turn! All cards revealed.';
+  } else if (state.needsFirstReveal && state.needsFirstReveal[state.currentPlayer]) {
+    state.message = 'Reveal 2 cards to start your turn.';
   } else {
-    state.message = playerTurnMessage(state.players[state.currentPlayer].name) + '.';
+    state.message = playerTurnMessage(state.players[state.currentPlayer].name) + '. Draw a card.';
   }
 }
 
@@ -1193,9 +1172,10 @@ function refreshUI() {
   renderScorecard(gameState);
 
   // Buttons
-  var canDraw = isHumanTurn && !gameState.drawnCard;
-  document.getElementById('btn-draw-deck').disabled = !(canDraw && phase !== 'firstTurn' && (phase === 'playing' || phase === 'finalTurns'));
-  document.getElementById('btn-draw-discard').disabled = !(canDraw && phase !== 'firstTurn' && (phase === 'playing' || phase === 'finalTurns') && gameState.discardPile.length > 0);
+  var needsReveal = gameState.needsFirstReveal && gameState.needsFirstReveal[gameState.currentPlayer];
+  var canDraw = isHumanTurn && !gameState.drawnCard && !needsReveal;
+  document.getElementById('btn-draw-deck').disabled = !(canDraw && (phase === 'playing' || phase === 'finalTurns'));
+  document.getElementById('btn-draw-discard').disabled = !(canDraw && (phase === 'playing' || phase === 'finalTurns') && gameState.discardPile.length > 0);
   document.getElementById('btn-discard').disabled = !(isHumanTurn && gameState.drawnCard !== null && !gameState.drawnFromDiscard);
   document.getElementById('btn-end-turn').disabled = true;
   document.getElementById('btn-swap-kapow').disabled = true;
@@ -1208,7 +1188,7 @@ function refreshUI() {
   }
 
   // AI turn
-  if (!isHumanTurn && (phase === 'firstTurn' || phase === 'playing' || phase === 'finalTurns')) {
+  if (!isHumanTurn && (phase === 'playing' || phase === 'finalTurns')) {
     setTimeout(playAITurn, 800);
   }
 }
@@ -1217,11 +1197,13 @@ function getClickablePositions() {
   var positions = [];
   var hand = gameState.players[0].hand;
   if (!hand) return positions;
-  var phase = gameState.phase;
   var isHumanTurn = gameState.players[gameState.currentPlayer].isHuman;
   if (!isHumanTurn) return positions;
 
-  if (phase === 'firstTurn') {
+  var needsReveal = gameState.needsFirstReveal && gameState.needsFirstReveal[gameState.currentPlayer];
+
+  if (needsReveal) {
+    // Player needs to reveal 2 face-down cards
     for (var t = 0; t < hand.triads.length; t++) {
       var triad = hand.triads[t];
       if (triad.isDiscarded) continue;
@@ -1233,6 +1215,7 @@ function getClickablePositions() {
       }
     }
   } else if (gameState.drawnCard) {
+    // Player has a drawn card — show positions to place it
     for (var t = 0; t < hand.triads.length; t++) {
       var triad = hand.triads[t];
       if (triad.isDiscarded) continue;
@@ -1274,9 +1257,10 @@ function showModal(title, buttons) {
 // Global click handler for cards
 window._onCardClick = function(triadIndex, position) {
   if (!gameState.players[gameState.currentPlayer].isHuman) return;
-  var phase = gameState.phase;
 
-  if (phase === 'firstTurn') {
+  var needsReveal = gameState.needsFirstReveal && gameState.needsFirstReveal[gameState.currentPlayer];
+
+  if (needsReveal) {
     var card = gameState.players[0].hand.triads[triadIndex][position][0];
     if (card && !card.isRevealed) {
       handleFirstTurnReveal(gameState, triadIndex, position);
@@ -1323,14 +1307,16 @@ window._onCardClick = function(triadIndex, position) {
 function onDrawFromDeck() {
   if (!gameState.players[gameState.currentPlayer].isHuman) return;
   if (gameState.drawnCard) return;
-  if (gameState.phase === 'firstTurn') return;
+  var needsReveal = gameState.needsFirstReveal && gameState.needsFirstReveal[gameState.currentPlayer];
+  if (needsReveal) return;
   handleDrawFromDeck(gameState);
   refreshUI();
 }
 
 function onDrawFromDiscard() {
   if (!gameState.players[gameState.currentPlayer].isHuman) return;
-  if (gameState.phase === 'firstTurn') return;
+  var needsReveal = gameState.needsFirstReveal && gameState.needsFirstReveal[gameState.currentPlayer];
+  if (needsReveal) return;
 
   // If holding a drawn card from the DECK, clicking discard pile discards it
   if (gameState.drawnCard && !gameState.drawnFromDiscard) {
@@ -1439,54 +1425,62 @@ function playAITurn() {
   if (gameState.players[gameState.currentPlayer].isHuman) return;
   var phase = gameState.phase;
 
-  if (phase === 'firstTurn') {
-    var reveals = aiFirstTurnReveals(gameState.players[1].hand);
-    for (var i = 0; i < reveals.length; i++) {
-      handleFirstTurnReveal(gameState, reveals[i].triadIndex, reveals[i].position);
+  if (phase === 'playing' || phase === 'finalTurns') {
+    // If AI needs first-turn reveals, do them first
+    var needsReveal = gameState.needsFirstReveal && gameState.needsFirstReveal[gameState.currentPlayer];
+    if (needsReveal) {
+      var reveals = aiFirstTurnReveals(gameState.players[1].hand);
+      for (var i = 0; i < reveals.length; i++) {
+        revealCard(gameState.players[1].hand, reveals[i].triadIndex, reveals[i].position);
+      }
+      gameState.firstTurnReveals = 0;
+      gameState.needsFirstReveal[gameState.currentPlayer] = false;
+      // Brief pause to show reveals, then continue with draw/play
+      refreshUI();
+      setTimeout(function() { playAITurnDraw(); }, 600);
+      return;
     }
+    playAITurnDraw();
+  }
+}
+
+function playAITurnDraw() {
+  var drawChoice = aiDecideDraw(gameState);
+  if (drawChoice === 'discard') {
+    handleDrawFromDiscard(gameState);
+  } else {
+    handleDrawFromDeck(gameState);
+  }
+
+  if (!gameState.drawnCard) {
     refreshUI();
     return;
   }
 
-  if (phase === 'playing' || phase === 'finalTurns') {
-    var drawChoice = aiDecideDraw(gameState);
-    if (drawChoice === 'discard') {
-      handleDrawFromDiscard(gameState);
-    } else {
-      handleDrawFromDeck(gameState);
-    }
+  var action = aiDecideAction(gameState, gameState.drawnCard);
+  var drewFromDiscard = gameState.drawnFromDiscard;
 
-    if (!gameState.drawnCard) {
-      refreshUI();
-      return;
-    }
-
-    var action = aiDecideAction(gameState, gameState.drawnCard);
-    var drewFromDiscard = gameState.drawnFromDiscard;
-
-    setTimeout(function() {
-      if (action.type === 'replace') {
-        handlePlaceCard(gameState, action.triadIndex, action.position);
-      } else if (drewFromDiscard) {
-        // Cannot discard a card drawn from discard - must place it somewhere
-        // Find any valid position to place it
-        var aiHand = gameState.players[1].hand;
-        var placed = false;
-        for (var t = 0; t < aiHand.triads.length && !placed; t++) {
-          var triad = aiHand.triads[t];
-          if (triad.isDiscarded) continue;
-          var positions = ['top', 'middle', 'bottom'];
-          for (var p = 0; p < positions.length && !placed; p++) {
-            handlePlaceCard(gameState, t, positions[p]);
-            placed = true;
-          }
+  setTimeout(function() {
+    if (action.type === 'replace') {
+      handlePlaceCard(gameState, action.triadIndex, action.position);
+    } else if (drewFromDiscard) {
+      // Cannot discard a card drawn from discard - must place it somewhere
+      var aiHand = gameState.players[1].hand;
+      var placed = false;
+      for (var t = 0; t < aiHand.triads.length && !placed; t++) {
+        var triad = aiHand.triads[t];
+        if (triad.isDiscarded) continue;
+        var positions = ['top', 'middle', 'bottom'];
+        for (var p = 0; p < positions.length && !placed; p++) {
+          handlePlaceCard(gameState, t, positions[p]);
+          placed = true;
         }
-      } else {
-        handleDiscard(gameState);
       }
-      refreshUI();
-    }, 600);
-  }
+    } else {
+      handleDiscard(gameState);
+    }
+    refreshUI();
+  }, 600);
 }
 
 // Start
