@@ -457,8 +457,20 @@ function handleFirstTurnReveal(state, triadIndex, position) {
     state.firstTurnReveals = 0;
     state.playersRevealed = (state.playersRevealed || 0) + 1;
 
+    // When the human finishes revealing, immediately have the AI reveal too
+    if (state.currentPlayer === 0 && state.playersRevealed < state.players.length) {
+      // AI reveals instantly (no separate turn)
+      var aiReveals = aiFirstTurnReveals(state.players[1].hand);
+      state.currentPlayer = 1;
+      for (var i = 0; i < aiReveals.length; i++) {
+        revealCard(state.players[1].hand, aiReveals[i].triadIndex, aiReveals[i].position);
+      }
+      state.firstTurnReveals = 0;
+      state.playersRevealed++;
+    }
+
     if (state.playersRevealed >= state.players.length) {
-      // All players done revealing - start playing with the first player of the round
+      // All players done revealing - start playing
       state.phase = 'playing';
       state.currentPlayer = state.roundFirstPlayer;
       state.playersRevealed = 0;
