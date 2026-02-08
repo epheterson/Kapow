@@ -1076,8 +1076,14 @@ function renderDrawPile(state) {
   var container = document.getElementById('draw-top');
   if (!container) return;
 
-  // Always show card-back on draw pile
-  container.innerHTML = '<div class="card card-back"><div class="card-back-inner"><span class="card-back-text">KAPOW!</span></div></div>';
+  if (state.drawnCard && !state.drawnFromDiscard) {
+    // Show the drawn card face-up and highlighted on the draw pile
+    container.innerHTML = renderCardHTML(state.drawnCard, false, false);
+    container.classList.add('drawn-highlight');
+  } else {
+    container.innerHTML = '<div class="card card-back"><div class="card-back-inner"><span class="card-back-text">KAPOW!</span></div></div>';
+    container.classList.remove('drawn-highlight');
+  }
 }
 
 // ========================================
@@ -1145,19 +1151,15 @@ function refreshUI() {
   renderDrawPile(gameState);
   document.getElementById('draw-count').textContent = '(' + gameState.drawPile.length + ' cards)';
 
-  // Show drawn card in center area when human has a drawn card
-  var drawnCardArea = document.getElementById('drawn-card-area');
-  var drawnCardDisplay = document.getElementById('drawn-card-display');
-  if (isHumanTurn && gameState.drawnCard) {
-    drawnCardDisplay.innerHTML = renderCardHTML(gameState.drawnCard, false, false);
-    drawnCardArea.classList.remove('hidden');
-  } else {
-    drawnCardDisplay.innerHTML = '';
-    drawnCardArea.classList.add('hidden');
-  }
-
-  // Highlight discard pile when it's a valid discard target
+  // Highlight the source pile when player has a drawn card
   var discardPileEl = document.getElementById('discard-pile');
+  var discardTopEl = document.getElementById('discard-top');
+  if (isHumanTurn && gameState.drawnCard && gameState.drawnFromDiscard) {
+    discardTopEl.classList.add('drawn-highlight');
+  } else {
+    discardTopEl.classList.remove('drawn-highlight');
+  }
+  // Show discard pile as a valid discard target when holding a deck-drawn card
   if (isHumanTurn && gameState.drawnCard && !gameState.drawnFromDiscard) {
     discardPileEl.classList.add('discard-target');
   } else {
