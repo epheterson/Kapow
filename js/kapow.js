@@ -400,7 +400,8 @@ function createGameState(playerNames) {
     firstOutPlayer: null,
     finalTurnsRemaining: 0,
     firstTurnReveals: 0,
-    message: ''
+    message: '',
+    aiHighlight: null  // { type: 'draw'|'place'|'reveal'|'discard', triadIndex, position, pile }
   };
 }
 
@@ -935,7 +936,7 @@ function renderPowersetInfo(positionCards) {
     '</div>';
 }
 
-function renderHand(hand, containerId, isOpponent, clickablePositions, onClickAttr) {
+function renderHand(hand, containerId, isOpponent, clickablePositions, onClickAttr, highlight) {
   var container = document.getElementById(containerId);
   var html = '';
 
@@ -959,7 +960,14 @@ function renderHand(hand, containerId, isOpponent, clickablePositions, onClickAt
     var positions = ['top', 'middle', 'bottom'];
     for (var p = 0; p < positions.length; p++) {
       var pos = positions[p];
-      html += '<div class="position-slot">';
+
+      // Check if this position should be highlighted (AI actions)
+      var hlClass = '';
+      if (highlight && highlight.triadIndex === t && highlight.position === pos) {
+        if (highlight.type === 'place') hlClass = ' ai-place-highlight';
+        else if (highlight.type === 'reveal') hlClass = ' ai-reveal-highlight';
+      }
+      html += '<div class="position-slot' + hlClass + '">';
 
       if (triad[pos].length > 0) {
         var isClickable = false;
@@ -1093,6 +1101,7 @@ function renderDrawPile(state) {
 
 var gameState = null;
 var playerName = 'Player';
+var aiTurnInProgress = false;
 
 function init() {
   // Show name entry screen
@@ -1144,23 +1153,41 @@ function refreshUI() {
   var clickablePositions = getClickablePositions();
 
   // Render hands
-  renderHand(gameState.players[0].hand, 'player-hand', false, clickablePositions, 'window._onCardClick');
-  renderHand(gameState.players[1].hand, 'ai-hand', true, [], null);
+  var aiHL = gameState.aiHighlight;
+  renderHand(gameState.players[0].hand, 'player-hand', false, clickablePositions, 'window._onCardClick', null);
+  renderHand(gameState.players[1].hand, 'ai-hand', true, [], null, aiHL);
 
   // Render piles
   renderDiscardPile(gameState.discardPile, gameState.drawnCard, gameState.drawnFromDiscard);
   renderDrawPile(gameState);
   document.getElementById('draw-count').textContent = '(' + gameState.drawPile.length + ' cards)';
 
-  // Highlight the source pile when player has a drawn card
-  var discardPileEl = document.getElementById('discard-pile');
+  // AI draw pile highlights
+  var drawTopEl = document.getElementById('draw-top');
   var discardTopEl = document.getElementById('discard-top');
+  var discardPileEl = document.getElementById('discard-pile');
+
+  // Clear AI highlights from piles first
+  drawTopEl.classList.remove('ai-draw-highlight');
+  discardTopEl.classList.remove('ai-draw-highlight');
+
+  if (aiHL && aiHL.type === 'draw') {
+    if (aiHL.pile === 'deck') {
+      drawTopEl.classList.add('ai-draw-highlight');
+    } else if (aiHL.pile === 'discard') {
+      discardTopEl.classList.add('ai-draw-highlight');
+    }
+  }
+  if (aiHL && aiHL.type === 'discard') {
+    discardTopEl.classList.add('ai-draw-highlight');
+  }
+
+  // Human player pile highlights
   if (isHumanTurn && gameState.drawnCard && gameState.drawnFromDiscard) {
     discardTopEl.classList.add('drawn-highlight');
-  } else {
+  } else if (!aiHL) {
     discardTopEl.classList.remove('drawn-highlight');
   }
-  // Show discard pile as a valid discard target when holding a deck-drawn card
   if (isHumanTurn && gameState.drawnCard && !gameState.drawnFromDiscard) {
     discardPileEl.classList.add('discard-target');
   } else {
@@ -1190,9 +1217,10 @@ function refreshUI() {
     showGameOver();
   }
 
-  // AI turn
-  if (!isHumanTurn && (phase === 'playing' || phase === 'finalTurns')) {
-    setTimeout(playAITurn, 800);
+  // AI turn — only trigger if not already in progress
+  if (!isHumanTurn && !aiTurnInProgress && (phase === 'playing' || phase === 'finalTurns')) {
+    aiTurnInProgress = true;
+    setTimeout(playAITurn, 1000);
   }
 }
 
@@ -1344,12 +1372,14 @@ function onDiscard() {
 
 function onNextRound() {
   document.getElementById('round-end-screen').classList.add('hidden');
+  aiTurnInProgress = false;
   advanceRound(gameState);
   refreshUI();
 }
 
 function onNewGame() {
   document.getElementById('game-over-screen').classList.add('hidden');
+  aiTurnInProgress = false;
 
   // Start a fresh game with the same player name
   gameState = createGameState([playerName, 'AI']);
@@ -1423,32 +1453,59 @@ function showGameOver() {
   screen.classList.remove('hidden');
 }
 
-// AI Turn
+// AI Turn — multi-step sequence with educational visibility
+var AI_DELAY = 1500; // ms between each visible step
+
 function playAITurn() {
   if (gameState.players[gameState.currentPlayer].isHuman) return;
   var phase = gameState.phase;
+  if (phase !== 'playing' && phase !== 'finalTurns') return;
 
-  if (phase === 'playing' || phase === 'finalTurns') {
-    // If AI needs first-turn reveals, do them first
-    var needsReveal = gameState.needsFirstReveal && gameState.needsFirstReveal[gameState.currentPlayer];
-    if (needsReveal) {
-      var reveals = aiFirstTurnReveals(gameState.players[1].hand);
-      for (var i = 0; i < reveals.length; i++) {
-        revealCard(gameState.players[1].hand, reveals[i].triadIndex, reveals[i].position);
-      }
-      gameState.firstTurnReveals = 0;
-      gameState.needsFirstReveal[gameState.currentPlayer] = false;
-      // Brief pause to show reveals, then continue with draw/play
-      refreshUI();
-      setTimeout(function() { playAITurnDraw(); }, 600);
-      return;
-    }
-    playAITurnDraw();
+  // Step 1: Announce AI's turn
+  gameState.aiHighlight = null;
+  gameState.message = "AI's turn — thinking...";
+  refreshUI();
+
+  var needsReveal = gameState.needsFirstReveal && gameState.needsFirstReveal[gameState.currentPlayer];
+
+  if (needsReveal) {
+    setTimeout(function() { aiStepReveal(); }, AI_DELAY);
+  } else {
+    setTimeout(function() { aiStepDraw(); }, AI_DELAY);
   }
 }
 
-function playAITurnDraw() {
+// Step 2a: Reveal cards (first turn only)
+function aiStepReveal() {
+  var reveals = aiFirstTurnReveals(gameState.players[1].hand);
+
+  // Reveal first card
+  revealCard(gameState.players[1].hand, reveals[0].triadIndex, reveals[0].position);
+  var card1 = gameState.players[1].hand.triads[reveals[0].triadIndex][reveals[0].position][0];
+  gameState.aiHighlight = { type: 'reveal', triadIndex: reveals[0].triadIndex, position: reveals[0].position };
+  gameState.message = 'AI reveals ' + cardDescription(card1) + ' in Triad ' + (reveals[0].triadIndex + 1) + '.';
+  refreshUI();
+
+  // Reveal second card after delay
+  setTimeout(function() {
+    revealCard(gameState.players[1].hand, reveals[1].triadIndex, reveals[1].position);
+    var card2 = gameState.players[1].hand.triads[reveals[1].triadIndex][reveals[1].position][0];
+    gameState.aiHighlight = { type: 'reveal', triadIndex: reveals[1].triadIndex, position: reveals[1].position };
+    gameState.message = 'AI reveals ' + cardDescription(card2) + ' in Triad ' + (reveals[1].triadIndex + 1) + '.';
+    gameState.firstTurnReveals = 0;
+    gameState.needsFirstReveal[gameState.currentPlayer] = false;
+    refreshUI();
+
+    // Continue to draw step
+    setTimeout(function() { aiStepDraw(); }, AI_DELAY);
+  }, AI_DELAY);
+}
+
+// Step 2b: Draw a card
+function aiStepDraw() {
   var drawChoice = aiDecideDraw(gameState);
+  var drewFrom = drawChoice === 'discard' ? 'discard' : 'deck';
+
   if (drawChoice === 'discard') {
     handleDrawFromDiscard(gameState);
   } else {
@@ -1456,34 +1513,61 @@ function playAITurnDraw() {
   }
 
   if (!gameState.drawnCard) {
+    gameState.aiHighlight = null;
     refreshUI();
     return;
   }
 
+  var drawnDesc = cardDescription(gameState.drawnCard);
+  var pileLabel = drewFrom === 'discard' ? 'discard pile' : 'draw pile';
+  gameState.aiHighlight = { type: 'draw', pile: drewFrom };
+  gameState.message = 'AI draws ' + drawnDesc + ' from the ' + pileLabel + '.';
+  refreshUI();
+
+  // Pre-compute the action while showing the draw
   var action = aiDecideAction(gameState, gameState.drawnCard);
   var drewFromDiscard = gameState.drawnFromDiscard;
 
-  setTimeout(function() {
-    if (action.type === 'replace') {
-      handlePlaceCard(gameState, action.triadIndex, action.position);
-    } else if (drewFromDiscard) {
-      // Cannot discard a card drawn from discard - must place it somewhere
-      var aiHand = gameState.players[1].hand;
-      var placed = false;
-      for (var t = 0; t < aiHand.triads.length && !placed; t++) {
-        var triad = aiHand.triads[t];
-        if (triad.isDiscarded) continue;
-        var positions = ['top', 'middle', 'bottom'];
-        for (var p = 0; p < positions.length && !placed; p++) {
-          handlePlaceCard(gameState, t, positions[p]);
-          placed = true;
-        }
+  // Step 3: Place or discard
+  setTimeout(function() { aiStepPlace(action, drewFromDiscard, drawnDesc); }, AI_DELAY);
+}
+
+// Step 3: Place or discard the drawn card
+function aiStepPlace(action, drewFromDiscard, drawnDesc) {
+  if (action.type === 'replace') {
+    var posLabel = action.position.charAt(0).toUpperCase() + action.position.slice(1);
+    gameState.message = 'AI places ' + drawnDesc + ' in Triad ' + (action.triadIndex + 1) + ' (' + posLabel + ').';
+    handlePlaceCard(gameState, action.triadIndex, action.position);
+    gameState.aiHighlight = { type: 'place', triadIndex: action.triadIndex, position: action.position };
+  } else if (drewFromDiscard) {
+    // Must place somewhere — find a position
+    var aiHand = gameState.players[1].hand;
+    var placed = false;
+    for (var t = 0; t < aiHand.triads.length && !placed; t++) {
+      var triad = aiHand.triads[t];
+      if (triad.isDiscarded) continue;
+      var positions = ['top', 'middle', 'bottom'];
+      for (var p = 0; p < positions.length && !placed; p++) {
+        var posLabel = positions[p].charAt(0).toUpperCase() + positions[p].slice(1);
+        gameState.message = 'AI places ' + drawnDesc + ' in Triad ' + (t + 1) + ' (' + posLabel + ').';
+        handlePlaceCard(gameState, t, positions[p]);
+        gameState.aiHighlight = { type: 'place', triadIndex: t, position: positions[p] };
+        placed = true;
       }
-    } else {
-      handleDiscard(gameState);
     }
+  } else {
+    handleDiscard(gameState);
+    gameState.aiHighlight = { type: 'discard' };
+    gameState.message = 'AI discards ' + drawnDesc + '.';
+  }
+  refreshUI();
+
+  // Step 4: Clear highlights and end turn
+  setTimeout(function() {
+    gameState.aiHighlight = null;
+    aiTurnInProgress = false;
     refreshUI();
-  }, 600);
+  }, AI_DELAY);
 }
 
 // Start

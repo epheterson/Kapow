@@ -396,6 +396,31 @@ body {
   animation: pulse 1.2s infinite;
 }
 
+/* AI action highlights */
+.ai-draw-highlight {
+  outline: 3px solid #3498db;
+  outline-offset: 2px;
+  border-radius: var(--card-radius);
+  animation: ai-pulse 1s infinite;
+}
+
+.ai-place-highlight .card {
+  outline: 3px solid #2ecc71;
+  outline-offset: 2px;
+  animation: ai-pulse 1s infinite;
+}
+
+.ai-reveal-highlight .card {
+  outline: 3px solid #e67e22;
+  outline-offset: 2px;
+  animation: ai-pulse 1s infinite;
+}
+
+@keyframes ai-pulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(52, 152, 219, 0.4); }
+  50% { box-shadow: 0 0 20px rgba(52, 152, 219, 0.8); }
+}
+
 .pile.discard-target {
   animation: pulse 1.2s infinite;
   border-radius: 12px;
