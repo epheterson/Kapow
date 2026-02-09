@@ -37,10 +37,10 @@ function createDeck() {
   for (var v = 3; v <= 12; v++) {
     for (var i = 0; i < 8; i++) cards.push(createCard('fixed', v));
   }
-  // Power cards: face 1, mods -1/+1 (x4)
-  for (var i = 0; i < 4; i++) cards.push(createCard('power', 1, [-1, 1]));
-  // Power cards: face 2, mods -2/+2 (x4)
-  for (var i = 0; i < 4; i++) cards.push(createCard('power', 2, [-2, 2]));
+  // Power cards: face 1, mods -1/+1 (x8)
+  for (var i = 0; i < 8; i++) cards.push(createCard('power', 1, [-1, 1]));
+  // Power cards: face 2, mods -2/+2 (x8)
+  for (var i = 0; i < 8; i++) cards.push(createCard('power', 2, [-2, 2]));
   // KAPOW! wild cards (x6)
   for (var i = 0; i < 6; i++) cards.push(createCard('kapow', 0));
 
