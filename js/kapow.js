@@ -401,7 +401,9 @@ function createGameState(playerNames) {
     finalTurnsRemaining: 0,
     firstTurnReveals: 0,
     message: '',
-    aiHighlight: null  // { type: 'draw'|'place'|'reveal'|'discard', triadIndex, position, pile }
+    aiHighlight: null,  // { type: 'draw'|'place'|'reveal'|'discard', triadIndex, position, pile }
+    awaitingKapowSwap: false,  // true after place/discard when swappable KAPOWs exist
+    selectedKapow: null  // { triadIndex, position } of selected KAPOW card during swap
   };
 }
 
@@ -423,6 +425,8 @@ function startRound(state) {
 
   state.drawnCard = null;
   state.drawnFromDiscard = false;
+  state.awaitingKapowSwap = false;
+  state.selectedKapow = null;
 
   // Determine who goes first
   var firstPlayer;
@@ -629,6 +633,33 @@ function endTurn(state) {
   advanceToNextPlayer(state);
 }
 
+// Check if player has swappable KAPOW cards with valid revealed targets;
+// if so, enter swap phase instead of ending turn.
+// For AI players, we skip endTurn here — the AI step sequence handles turn completion.
+function checkForKapowSwapOrEndTurn(state) {
+  var player = state.players[state.currentPlayer];
+  if (player.isHuman) {
+    var swappable = findSwappableKapowCards(player.hand);
+    // Only offer swap if at least one KAPOW has a revealed target to swap with
+    var hasValidSwap = false;
+    for (var i = 0; i < swappable.length; i++) {
+      var targets = findSwapTargets(player.hand, swappable[i].triadIndex, swappable[i].position);
+      if (targets.length > 0) {
+        hasValidSwap = true;
+        break;
+      }
+    }
+    if (hasValidSwap) {
+      state.awaitingKapowSwap = true;
+      state.selectedKapow = null;
+      state.message = 'Swap a KAPOW! card, or End Turn.';
+      return;
+    }
+    endTurn(state);
+  }
+  // AI: do NOT call endTurn — aiStepCheckSwap handles it after swap check
+}
+
 function handlePlaceCard(state, triadIndex, position) {
   if (!state.drawnCard) return state;
   var player = state.players[state.currentPlayer];
@@ -649,7 +680,7 @@ function handlePlaceCard(state, triadIndex, position) {
   state.drawnCard = null;
   state.drawnFromDiscard = false;
   checkAndDiscardTriads(state, state.currentPlayer);
-  endTurn(state);
+  checkForKapowSwapOrEndTurn(state);
   return state;
 }
 
@@ -669,7 +700,7 @@ function handleAddPowerset(state, triadIndex, position, usePositiveModifier) {
   state.drawnCard = null;
   state.drawnFromDiscard = false;
   checkAndDiscardTriads(state, state.currentPlayer);
-  endTurn(state);
+  checkForKapowSwapOrEndTurn(state);
   return state;
 }
 
@@ -679,8 +710,7 @@ function handleDiscard(state) {
   state.discardPile.push(state.drawnCard);
   state.drawnCard = null;
   state.drawnFromDiscard = false;
-  state.message = 'Discarded. Turn over.';
-  endTurn(state);
+  checkForKapowSwapOrEndTurn(state);
   return state;
 }
 
@@ -702,7 +732,7 @@ function findSwappableKapowCards(hand) {
   return kapows;
 }
 
-// Find valid swap targets for a KAPOW! card (any other position that is not the same position)
+// Find valid swap targets for a KAPOW! card (any other revealed position that is not the same position)
 function findSwapTargets(hand, fromTriad, fromPos) {
   var targets = [];
   for (var t = 0; t < hand.triads.length; t++) {
@@ -711,7 +741,7 @@ function findSwapTargets(hand, fromTriad, fromPos) {
     var positions = ['top', 'middle', 'bottom'];
     for (var p = 0; p < positions.length; p++) {
       if (t === fromTriad && positions[p] === fromPos) continue;
-      if (triad[positions[p]].length > 0) {
+      if (triad[positions[p]].length > 0 && triad[positions[p]][0].isRevealed) {
         targets.push({ triadIndex: t, position: positions[p] });
       }
     }
@@ -961,11 +991,12 @@ function renderHand(hand, containerId, isOpponent, clickablePositions, onClickAt
     for (var p = 0; p < positions.length; p++) {
       var pos = positions[p];
 
-      // Check if this position should be highlighted (AI actions)
+      // Check if this position should be highlighted (AI actions or KAPOW swap selection)
       var hlClass = '';
       if (highlight && highlight.triadIndex === t && highlight.position === pos) {
         if (highlight.type === 'place') hlClass = ' ai-place-highlight';
         else if (highlight.type === 'reveal') hlClass = ' ai-reveal-highlight';
+        else if (highlight.type === 'kapow-selected') hlClass = ' kapow-selected-highlight';
       }
       html += '<div class="position-slot' + hlClass + '">';
 
@@ -1143,6 +1174,16 @@ function bindGameEvents() {
   document.getElementById('btn-new-game').addEventListener('click', onNewGame);
   document.getElementById('draw-pile').addEventListener('click', onDrawFromDeck);
   document.getElementById('discard-pile').addEventListener('click', onDrawFromDiscard);
+  document.getElementById('btn-end-turn').addEventListener('click', onEndTurn);
+}
+
+function onEndTurn() {
+  if (!gameState.players[gameState.currentPlayer].isHuman) return;
+  if (!gameState.awaitingKapowSwap) return;
+  gameState.awaitingKapowSwap = false;
+  gameState.selectedKapow = null;
+  endTurn(gameState);
+  refreshUI();
 }
 
 function refreshUI() {
@@ -1154,7 +1195,12 @@ function refreshUI() {
 
   // Render hands
   var aiHL = gameState.aiHighlight;
-  renderHand(gameState.players[0].hand, 'player-hand', false, clickablePositions, 'window._onCardClick', null);
+  // Highlight the selected KAPOW card during swap phase
+  var playerHL = null;
+  if (gameState.selectedKapow) {
+    playerHL = { type: 'kapow-selected', triadIndex: gameState.selectedKapow.triadIndex, position: gameState.selectedKapow.position };
+  }
+  renderHand(gameState.players[0].hand, 'player-hand', false, clickablePositions, 'window._onCardClick', playerHL);
   renderHand(gameState.players[1].hand, 'ai-hand', true, [], null, aiHL);
 
   // Render piles
@@ -1207,7 +1253,9 @@ function refreshUI() {
   document.getElementById('btn-draw-deck').disabled = !(canDraw && (phase === 'playing' || phase === 'finalTurns'));
   document.getElementById('btn-draw-discard').disabled = !(canDraw && (phase === 'playing' || phase === 'finalTurns') && gameState.discardPile.length > 0);
   document.getElementById('btn-discard').disabled = !(isHumanTurn && gameState.drawnCard !== null && !gameState.drawnFromDiscard);
-  document.getElementById('btn-end-turn').disabled = true;
+  // End Turn button: enabled only during KAPOW swap phase on human turn
+  document.getElementById('btn-end-turn').disabled = !(isHumanTurn && gameState.awaitingKapowSwap);
+  // Swap KAPOW button not used — swaps are initiated by clicking cards
   document.getElementById('btn-swap-kapow').disabled = true;
 
   // Phase screens
@@ -1244,6 +1292,18 @@ function getClickablePositions() {
           positions.push({ triadIndex: t, position: pos[p] });
         }
       }
+    }
+  } else if (gameState.awaitingKapowSwap && !gameState.selectedKapow) {
+    // Swap phase step 1: highlight swappable KAPOW cards
+    var swappable = findSwappableKapowCards(hand);
+    for (var s = 0; s < swappable.length; s++) {
+      positions.push({ triadIndex: swappable[s].triadIndex, position: swappable[s].position });
+    }
+  } else if (gameState.awaitingKapowSwap && gameState.selectedKapow) {
+    // Swap phase step 2: highlight all valid swap targets
+    var targets = findSwapTargets(hand, gameState.selectedKapow.triadIndex, gameState.selectedKapow.position);
+    for (var s = 0; s < targets.length; s++) {
+      positions.push({ triadIndex: targets[s].triadIndex, position: targets[s].position });
     }
   } else if (gameState.drawnCard) {
     // Player has a drawn card — show positions to place it
@@ -1300,6 +1360,58 @@ window._onCardClick = function(triadIndex, position) {
     return;
   }
 
+  // KAPOW swap phase — step 1: select a KAPOW card
+  if (gameState.awaitingKapowSwap && !gameState.selectedKapow) {
+    var hand = gameState.players[0].hand;
+    if (canSwapKapow(hand, triadIndex, position)) {
+      gameState.selectedKapow = { triadIndex: triadIndex, position: position };
+      gameState.message = 'Select a card to swap with the KAPOW! card.';
+      refreshUI();
+    }
+    return;
+  }
+
+  // KAPOW swap phase — step 2: select swap target
+  if (gameState.awaitingKapowSwap && gameState.selectedKapow) {
+    var hand = gameState.players[0].hand;
+    var from = gameState.selectedKapow;
+
+    // Allow clicking the same KAPOW card to deselect
+    if (triadIndex === from.triadIndex && position === from.position) {
+      gameState.selectedKapow = null;
+      gameState.message = 'Swap a KAPOW! card, or End Turn.';
+      refreshUI();
+      return;
+    }
+
+    // Validate target
+    var targets = findSwapTargets(hand, from.triadIndex, from.position);
+    var validTarget = false;
+    for (var i = 0; i < targets.length; i++) {
+      if (targets[i].triadIndex === triadIndex && targets[i].position === position) {
+        validTarget = true;
+        break;
+      }
+    }
+
+    if (validTarget) {
+      swapKapowCard(hand, from.triadIndex, from.position, triadIndex, position);
+      gameState.selectedKapow = null;
+      checkAndDiscardTriads(gameState, gameState.currentPlayer);
+
+      // Check if more swaps are available
+      var remaining = findSwappableKapowCards(hand);
+      if (remaining.length > 0) {
+        gameState.message = 'KAPOW! swapped! Swap another, or End Turn.';
+      } else {
+        gameState.awaitingKapowSwap = false;
+        endTurn(gameState);
+      }
+      refreshUI();
+    }
+    return;
+  }
+
   if (gameState.drawnCard) {
     var targetTriad = gameState.players[0].hand.triads[triadIndex];
     var targetPosCards = targetTriad[position];
@@ -1338,6 +1450,7 @@ window._onCardClick = function(triadIndex, position) {
 function onDrawFromDeck() {
   if (!gameState.players[gameState.currentPlayer].isHuman) return;
   if (gameState.drawnCard) return;
+  if (gameState.awaitingKapowSwap) return;  // Can't draw during swap phase
   var needsReveal = gameState.needsFirstReveal && gameState.needsFirstReveal[gameState.currentPlayer];
   if (needsReveal) return;
   handleDrawFromDeck(gameState);
@@ -1346,6 +1459,7 @@ function onDrawFromDeck() {
 
 function onDrawFromDiscard() {
   if (!gameState.players[gameState.currentPlayer].isHuman) return;
+  if (gameState.awaitingKapowSwap) return;  // Can't draw during swap phase
   var needsReveal = gameState.needsFirstReveal && gameState.needsFirstReveal[gameState.currentPlayer];
   if (needsReveal) return;
 
@@ -1562,12 +1676,62 @@ function aiStepPlace(action, drewFromDiscard, drawnDesc) {
   }
   refreshUI();
 
-  // Step 4: Clear highlights and end turn
-  setTimeout(function() {
+  // Step 4: Check for AI KAPOW swaps, then clear and end
+  setTimeout(function() { aiStepCheckSwap(); }, AI_DELAY);
+}
+
+// AI KAPOW swap: find beneficial swaps (ones that complete a triad)
+function aiFindBeneficialSwap(hand) {
+  var swappable = findSwappableKapowCards(hand);
+  for (var s = 0; s < swappable.length; s++) {
+    var kapow = swappable[s];
+    var targets = findSwapTargets(hand, kapow.triadIndex, kapow.position);
+    for (var t = 0; t < targets.length; t++) {
+      var target = targets[t];
+      // Simulate the swap to see if it completes a triad
+      var sourceCards = hand.triads[kapow.triadIndex][kapow.position];
+      var targetCards = hand.triads[target.triadIndex][target.position];
+      // Swap temporarily
+      hand.triads[kapow.triadIndex][kapow.position] = targetCards;
+      hand.triads[target.triadIndex][target.position] = sourceCards;
+      var completesTriad = isTriadComplete(hand.triads[kapow.triadIndex]) ||
+                           isTriadComplete(hand.triads[target.triadIndex]);
+      // Swap back
+      hand.triads[kapow.triadIndex][kapow.position] = sourceCards;
+      hand.triads[target.triadIndex][target.position] = targetCards;
+
+      if (completesTriad) {
+        return { from: kapow, to: target };
+      }
+    }
+  }
+  return null;
+}
+
+// Step 4: AI checks for KAPOW swaps
+function aiStepCheckSwap() {
+  var aiHand = gameState.players[1].hand;
+  var swap = aiFindBeneficialSwap(aiHand);
+
+  if (swap) {
+    // Execute the swap
+    swapKapowCard(aiHand, swap.from.triadIndex, swap.from.position, swap.to.triadIndex, swap.to.position);
+    var fromLabel = 'Triad ' + (swap.from.triadIndex + 1);
+    var toLabel = 'Triad ' + (swap.to.triadIndex + 1) + ' (' + swap.to.position.charAt(0).toUpperCase() + swap.to.position.slice(1) + ')';
+    gameState.message = 'AI swaps KAPOW! from ' + fromLabel + ' to ' + toLabel + '.';
+    gameState.aiHighlight = { type: 'place', triadIndex: swap.to.triadIndex, position: swap.to.position };
+    checkAndDiscardTriads(gameState, 1);
+    refreshUI();
+
+    // Check for more swaps after a delay
+    setTimeout(function() { aiStepCheckSwap(); }, AI_DELAY);
+  } else {
+    // No beneficial swaps — end AI turn
     gameState.aiHighlight = null;
+    endTurn(gameState);
     aiTurnInProgress = false;
     refreshUI();
-  }, AI_DELAY);
+  }
 }
 
 // Start

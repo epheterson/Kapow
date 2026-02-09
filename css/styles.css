@@ -446,6 +446,17 @@ body {
   50% { box-shadow: 0 0 20px rgba(52, 152, 219, 0.8); }
 }
 
+.kapow-selected-highlight .card {
+  outline: 3px solid #f39c12;
+  outline-offset: 2px;
+  animation: kapow-pulse 0.8s infinite;
+}
+
+@keyframes kapow-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(243, 156, 18, 0.5); }
+  50% { box-shadow: 0 0 22px rgba(243, 156, 18, 0.9); }
+}
+
 .pile.discard-target {
   animation: pulse 1.2s infinite;
   border-radius: 12px;
