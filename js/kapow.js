@@ -1142,7 +1142,25 @@ function buildAiExplanation(gameState, drawnCard, drawChoice, action) {
         }
         lines.push(' This builds toward completing the triad — there are ' + pathDesc + '.</p>');
       } else if (posCards.length > 0 && !posCards[0].isRevealed) {
-        lines.push(' AI replaced a face-down card to reveal information and build this triad.</p>');
+        // Check if the new card has synergy with existing neighbor(s)
+        var neighborSynergy = false;
+        for (var ni = 0; ni < 3; ni++) {
+          var nPos = ['top', 'middle', 'bottom'][ni];
+          if (nPos === action.position) continue;
+          var nCards = triad[nPos];
+          if (nCards.length > 0 && nCards[0].isRevealed) {
+            var nSyn = aiEvaluateCardSynergy(
+              drawnCard.type === 'fixed' ? drawnCard.faceValue : 0, ['top', 'middle', 'bottom'].indexOf(action.position),
+              getPositionValue(nCards), ni
+            );
+            if (nSyn > 0) neighborSynergy = true;
+          }
+        }
+        if (neighborSynergy) {
+          lines.push(' AI replaced a face-down card — this card works well with the existing card(s) in this triad.</p>');
+        } else {
+          lines.push(' AI replaced a face-down card to start building this triad.</p>');
+        }
       } else if (posCards.length > 0 && posCards[0].isRevealed) {
         var oldVal = getPositionValue(posCards);
         var newVal = drawnCard.type === 'kapow' ? 25 : drawnCard.faceValue;
@@ -1924,7 +1942,21 @@ function aiScorePlacement(hand, card, triadIndex, position) {
         existingRevealed.push({ value: getPositionValue(eCards), posIdx: ei });
       }
     }
-    if (existingRevealed.length === 2) {
+    if (existingRevealed.length === 1) {
+      // One revealed card already — check if the new card has any synergy with it.
+      // Without this check, the AI blindly places cards next to incompatible neighbors
+      // (e.g., 7 next to 4 — no set or run possible) and still gets the neighbor bonus.
+      var synWith1 = aiEvaluateCardSynergy(
+        newValue, posIdx,
+        existingRevealed[0].value, existingRevealed[0].posIdx
+      );
+      if (synWith1 === 0) {
+        // Zero completion paths — this card doesn't work with the existing one.
+        // Penalty scales with card value (placing a high misfit card is worse).
+        var valuePenalty1 = Math.max(0, newValue - 5);
+        existingSynergyPenalty = -8 - (valuePenalty1 * 2);
+      }
+    } else if (existingRevealed.length === 2) {
       // Two revealed cards already — check their existing completion paths
       var existingPaths = aiEvaluateCardSynergy(
         existingRevealed[0].value, existingRevealed[0].posIdx,
