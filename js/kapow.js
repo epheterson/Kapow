@@ -1921,11 +1921,23 @@ function aiScorePlacement(hand, card, triadIndex, position) {
     score -= 20;
   }
 
-  // KAPOW penalty avoidance: extra bonus for replacing an unfrozen KAPOW
+  // KAPOW penalty avoidance: bonus for replacing an unfrozen KAPOW, BUT scaled by
+  // turn number. Early in the round, KAPOW! has enormous strategic value — it can be
+  // swapped into any triad to complete it later. Don't rush to replace it.
   // (Final turn case already handled by early return above)
   if (posCards.length > 0 && posCards[0].isRevealed &&
       posCards[0].type === 'kapow' && !posCards[0].isFrozen) {
-    score += 20;
+    var turnNum = gameState ? gameState.turnNumber : 10;
+    if (turnNum <= 4) {
+      // Early game: KAPOW is valuable for swaps — no bonus for replacing it
+      score += 0;
+    } else if (turnNum <= 8) {
+      // Mid game: moderate bonus — KAPOW is still useful but less so
+      score += 10;
+    } else {
+      // Late game: full bonus — need to shed the 25-point liability
+      score += 20;
+    }
   }
 
   // BEFORE simulating placement: if replacing a face-down card, check whether
@@ -2275,6 +2287,21 @@ function aiScorePlacement(hand, card, triadIndex, position) {
           }
         }
       }
+    }
+  }
+
+  // REPLACED-CARD DISCARD SAFETY: When replacing a revealed card, the old card goes
+  // to the discard pile — available to the opponent. Check if giving them that card is
+  // dangerous. This is especially critical for KAPOW! cards (universal wild) and cards
+  // that complete opponent triads. Only applies when replacing a revealed card (not face-down).
+  if (gameState && !isUnrevealed && posCards.length > 0 && posCards[0].isRevealed) {
+    var replacedCard = posCards[0];
+    var replacedSafety = aiEvaluateDiscardSafety(replacedCard, gameState);
+    // Scale: safety 50 = neutral (no penalty), lower = more dangerous
+    // Safety 15 (KAPOW) → penalty of -(50-15)*0.4 = -14
+    // Safety 0 (KAPOW + opponent needs) → penalty of -20
+    if (replacedSafety < 50) {
+      score -= Math.round((50 - replacedSafety) * 0.4);
     }
   }
 
