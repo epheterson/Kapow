@@ -1602,6 +1602,19 @@ function aiScorePlacement(hand, card, triadIndex, position) {
     score -= 20; // strong penalty for destroying a powerset
   }
 
+  // Solo Power card preservation: Power cards have strategic value because drawing a
+  // 0-value card later can create a powerset with negative value (e.g., 0 + P2(-2) = -2).
+  // Penalize replacing a solo Power card with a fixed-value card, especially early in the
+  // round when there are more chances to draw completing cards (0s, or cards that build runs).
+  // Penalty is stronger early (turns 1-10) and fades later as powerset opportunity decreases.
+  var isSoloPower = posCards.length === 1 && posCards[0].type === 'power' && posCards[0].isRevealed;
+  if (isSoloPower && card.type === 'fixed') {
+    var turnNum = gameState ? gameState.turnNumber : 10;
+    var earlyRoundFactor = Math.max(0, (20 - turnNum) / 20); // 1.0 at turn 0, 0.0 at turn 20+
+    var powerPreservationPenalty = 8 + Math.round(earlyRoundFactor * 10); // 8-18 penalty
+    score -= powerPreservationPenalty;
+  }
+
   // Score delta: how much does placing this card reduce hand score?
   // When opponent is threatening to go out, weight score reduction much more heavily.
   var opponentThreat = gameState ? aiAssessOpponentThreat(gameState) : 0;
