@@ -1769,9 +1769,12 @@ function aiScorePlacement(hand, card, triadIndex, position) {
       // If replacing a revealed card with equal or fewer paths AND going UP in
       // points, penalize. No reason to increase triad score without gaining paths.
       // E.g., [2,1,4] → [2,4,4]: same 3 paths but +3 points = bad trade.
+      // Penalty scales with opponent threat — when opponent is close to going out,
+      // increasing points is especially harmful since there may be no more turns to fix it.
       if (!isUnrevealed && pathsBefore > 0 && futures.totalPaths <= pathsBefore && newValue > currentValue) {
         var valueIncrease3 = newValue - currentValue;
-        score -= 5 + (valueIncrease3 * 3);
+        var threatMultiplier = 1 + opponentThreat; // 1.0 safe → 2.0 urgent
+        score -= Math.round((5 + (valueIncrease3 * 3)) * threatMultiplier);
       }
     } else if (analysis.revealedCount === 2 && analysis.completionPaths > 0) {
       // Near-complete with good completion paths — very valuable
@@ -1813,7 +1816,9 @@ function aiScorePlacement(hand, card, triadIndex, position) {
         var synergyLoss = synergyBefore - synergyAfter;
         var valueIncrease = Math.max(0, newValue - currentValue);
         // Penalty: base for breaking synergy + scaled by how much worse it got + value increase
-        score -= 10 + (synergyLoss * 6) + (valueIncrease * 3);
+        // Amplified by opponent threat — can't afford to lose ground when opponent may go out soon
+        var synThreatMult = 1 + opponentThreat;
+        score -= Math.round((10 + (synergyLoss * 6) + (valueIncrease * 3)) * synThreatMult);
       }
     }
   }
