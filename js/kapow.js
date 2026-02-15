@@ -2714,7 +2714,7 @@ function showRoundEnd() {
     var player = gameState.players[i];
     var roundScore = player.roundScores[player.roundScores.length - 1];
     html += '<tr><td style="padding: 4px 12px; font-weight: bold;">' + player.name + '</td>' +
-      '<td style="padding: 4px 12px;">Round: +' + roundScore + '</td>' +
+      '<td style="padding: 4px 12px;">Round: ' + (roundScore >= 0 ? '+' : '') + roundScore + '</td>' +
       '<td style="padding: 4px 12px;">Total: ' + player.totalScore + '</td></tr>';
   }
   html += '</table>';
