@@ -80,7 +80,14 @@ function replenishFromDiscard(discardPile) {
   }
   var topDiscard = discardPile[discardPile.length - 1];
   var cardsToShuffle = discardPile.slice(0, -1);
-  cardsToShuffle.forEach(function(card) { card.isRevealed = false; });
+  cardsToShuffle.forEach(function(card) {
+    card.isRevealed = false;
+    // Reset KAPOW cards back to wild when reshuffled into draw pile
+    if (card.type === 'kapow') {
+      card.isFrozen = false;
+      card.assignedValue = null;
+    }
+  });
   return {
     drawPile: shuffle(cardsToShuffle),
     discardPile: [topDiscard]
@@ -682,6 +689,11 @@ function checkAndDiscardTriads(state, playerIndex) {
         // Then push face-up card last (so it ends up on top for this position)
         if (posCards.length > 0) {
           posCards[0].isRevealed = true;
+          // Reset KAPOW cards back to wild when discarded from a completed triad
+          if (posCards[0].type === 'kapow') {
+            posCards[0].isFrozen = false;
+            posCards[0].assignedValue = null;
+          }
           state.discardPile.push(posCards[0]);
         }
       }
