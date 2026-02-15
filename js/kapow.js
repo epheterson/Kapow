@@ -1673,8 +1673,21 @@ function aiScorePlacement(hand, card, triadIndex, position) {
     modifiers: card.modifiers, isRevealed: true, isFrozen: false, assignedValue: null }];
 
   if (isTriadComplete(triad)) {
-    // Completing a triad is extremely valuable
-    score += 100;
+    // Completing a triad is extremely valuable.
+    // Bonus scales with the points of the OTHER cards already in the triad —
+    // prefer completing high-value triads (e.g., [9,9,fd] has 18 known pts)
+    // over low-value ones ([5,6,fd] has 11 known pts).
+    var existingPoints = 0;
+    for (var ti = 0; ti < 3; ti++) {
+      if (ti === posIdx) continue; // skip the slot we're placing into
+      var tCards = triad[positions[ti]];
+      if (tCards.length > 0 && tCards[0].isRevealed) {
+        existingPoints += getPositionValue(tCards);
+      } else {
+        existingPoints += 6; // estimated average for face-down
+      }
+    }
+    score += 100 + existingPoints;
   } else {
     // Analyze the triad AFTER placement
     var analysis = aiAnalyzeTriad(triad);
