@@ -23,12 +23,15 @@
     <!-- Main Play Area: Piles flanking hands -->
     <div id="play-area">
 
-      <!-- Left: Draw Pile -->
-      <div id="draw-pile" class="pile">
-        <div id="turn-counter">Round 1 &mdash; Turn 1</div>
-        <div id="draw-top"></div>
-        <div class="pile-label">Draw</div>
-        <div id="draw-count" class="pile-count"></div>
+      <!-- Left: Draw Pile + Understand Button -->
+      <div id="left-column">
+        <div id="draw-pile" class="pile">
+          <div id="turn-counter">Round 1 &mdash; Turn 1</div>
+          <div id="draw-top"></div>
+          <div class="pile-label">Draw</div>
+          <div id="draw-count" class="pile-count"></div>
+        </div>
+        <button id="btn-understand-move" class="action-btn understand-btn" disabled>Understand<br>AI's Move</button>
       </div>
 
       <!-- Center: Hands stacked vertically -->
@@ -44,7 +47,6 @@
           <div id="game-message">Welcome to KAPOW!</div>
           <div id="action-controls">
             <button id="btn-end-turn" class="action-btn" disabled>End Turn</button>
-            <button id="btn-swap-kapow" class="action-btn kapow-btn" disabled>Swap KAPOW!</button>
           </div>
         </div>
 
@@ -69,6 +71,15 @@
     <button id="btn-draw-deck" class="hidden" disabled></button>
     <button id="btn-draw-discard" class="hidden" disabled></button>
     <button id="btn-discard" class="hidden" disabled></button>
+
+    <!-- AI Move Explanation Modal -->
+    <div id="explain-modal" class="hidden">
+      <div class="explain-modal-content">
+        <h3>Understanding AI's Move</h3>
+        <div id="explain-text"></div>
+        <button id="btn-close-explain" class="action-btn">Close</button>
+      </div>
+    </div>
 
     <!-- Power Card Choice Modal -->
     <div id="power-modal" class="hidden">
