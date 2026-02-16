@@ -558,7 +558,8 @@ function createGameState(playerNames) {
     selectedKapow: null,  // { triadIndex, position } of selected KAPOW card during swap
     turnNumber: 0,
     actionLog: [],
-    aiCommentary: ''
+    aiCommentary: '',
+    lastDiscardKnown: false
   };
 }
 
@@ -841,6 +842,8 @@ function checkAndDiscardTriads(state, playerIndex) {
           state.discardPile.push(posCards[0]);
         }
       }
+      // Triad completion: all cards were revealed, so discard is always knowingly provided
+      if (playerIndex === 0) state.lastDiscardKnown = true;
     }
   }
 }
@@ -995,6 +998,11 @@ function handlePlaceCard(state, triadIndex, position) {
   var replacedCard = result.discarded[0];
   var replacedDesc = (replacedCard && replacedCard.isRevealed) ? cardDescription(replacedCard) : 'face-down card';
 
+  // Track whether human knowingly provided this discard (only if replaced card was already revealed)
+  if (state.currentPlayer === 0) {
+    state.lastDiscardKnown = !!(replacedCard && replacedCard.isRevealed);
+  }
+
   // Discard the replaced cards: modifier cards go first, face-up card goes last (on top of discard pile)
   var faceUpCard = result.discarded[0];
   for (var i = 1; i < result.discarded.length; i++) {
@@ -1024,6 +1032,7 @@ function handleAddPowerset(state, triadIndex, position, usePositiveModifier) {
   if (!triad || triad.isDiscarded) return state;
   var posCards = triad[position];
   if (posCards.length === 0 || !posCards[0].isRevealed) return state;
+  if (posCards[0].type === 'kapow') return state; // Cannot modify KAPOW — value is undefined
 
   var modSign = usePositiveModifier ? '+' : '';
   var modValue = usePositiveModifier ? state.drawnCard.modifiers[1] : state.drawnCard.modifiers[0];
@@ -1048,6 +1057,7 @@ function handleAddPowerset(state, triadIndex, position, usePositiveModifier) {
 // existing power card becomes the modifier underneath
 function handleCreatePowersetOnPower(state, triadIndex, position, usePositiveModifier) {
   if (!state.drawnCard) return state;
+  if (state.drawnCard.type === 'kapow') return state; // Cannot create powerset with KAPOW — value is undefined
   var player = state.players[state.currentPlayer];
   var triad = player.hand.triads[triadIndex];
   if (!triad || triad.isDiscarded) return state;
@@ -1080,6 +1090,8 @@ function handleDiscard(state) {
   var discardDesc = cardDescription(state.drawnCard);
   state.drawnCard.isRevealed = true;
   state.discardPile.push(state.drawnCard);
+  // Track whether human knowingly provided this discard (always true for explicit discard)
+  if (state.currentPlayer === 0) state.lastDiscardKnown = true;
   logAction(state, state.currentPlayer, 'Discards ' + discardDesc);
   state.drawnCard = null;
   state.drawnFromDiscard = false;
@@ -1530,6 +1542,8 @@ function aiDecideAction(gameState, drawnCard) {
 // AI: find a solo power card where creating a powerset would be beneficial
 // Returns { type: 'powerset-on-power', triadIndex, position, usePositive } or null
 function aiFindPowersetOpportunity(hand, drawnCard) {
+  // KAPOW cards cannot be part of a powerset — their value is undefined until triad completes
+  if (drawnCard.type === 'kapow') return null;
   var drawnValue = drawnCard.type === 'fixed' ? drawnCard.faceValue :
                    (drawnCard.type === 'power' ? drawnCard.faceValue : 0);
   var best = null;
@@ -2971,6 +2985,7 @@ function aiFindModifierOpportunity(hand, drawnCard) {
     for (var p = 0; p < positions.length; p++) {
       var posCards = triad[positions[p]];
       if (posCards.length === 0 || !posCards[0].isRevealed) continue;
+      if (posCards[0].type === 'kapow') continue; // KAPOW value is undefined until triad completes
       if (posCards.length > 1) continue; // already has a modifier
 
       var currentValue = getPositionValue(posCards);
@@ -3659,7 +3674,9 @@ window._onCardClick = function(triadIndex, position) {
     }
 
     // Case 2: Drawn is Power, target is any revealed card — drawn as modifier or replace
-    if (drawnIsPower && targetIsRevealed) {
+    // (cannot use as modifier on KAPOW — its value is undefined until triad completes)
+    var targetIsKapow = targetIsRevealed && targetPosCards[0].type === 'kapow';
+    if (drawnIsPower && targetIsRevealed && !targetIsKapow) {
       var targetIsPowerset = targetPosCards.length > 1;
       var replaceLabel = targetIsPowerset ? 'Replace Powerset' : 'Replace Card';
       showModal('Power ' + drawnCard.faceValue + ' card — how would you like to play it?', [
@@ -3683,7 +3700,8 @@ window._onCardClick = function(triadIndex, position) {
     }
 
     // Case 3: Target is a solo Power card, drawn is any non-power card — create powerset or replace
-    if (targetIsPower) {
+    // (cannot create powerset with KAPOW on top — its value is undefined until triad completes)
+    if (targetIsPower && drawnCard.type !== 'kapow') {
       var existingPower = targetPosCards[0];
       showModal('Target is a Power ' + existingPower.faceValue + ' card — how would you like to play?', [
         { label: 'Create Powerset', value: 'powerset', style: 'accent' },
@@ -4018,8 +4036,8 @@ function aiStepPlace(action, drewFromDiscard, drawnDesc) {
     if (aiHand2.triads[bt].isDiscarded) aiTriadsDiscardedNow++;
   }
   if (aiTriadsDiscardedNow > aiTriadsBeforePlace) {
-    // A triad was completed! Was the card from the discard pile (opponent's discard)?
-    if (drewFromDiscard) {
+    // A triad was completed! Taunt only if card was from discard AND opponent knowingly provided it
+    if (drewFromDiscard && gameState.lastDiscardKnown) {
       generateAIBanter(gameState, 'discard_helps_ai');
     } else {
       generateAIBanter(gameState, 'ai_completes_triad');
