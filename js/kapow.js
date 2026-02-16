@@ -1460,12 +1460,52 @@ function aiAnalyzeTriad(triad) {
       if (result.values[i] === null) { emptyIdx = i; break; }
     }
     if (emptyIdx >= 0) {
-      for (var v = 0; v <= 12; v++) {
-        var testValues = result.values.slice();
-        testValues[emptyIdx] = v;
-        if (isSet(testValues) || isAscendingRun(testValues) || isDescendingRun(testValues)) {
-          result.completionPaths++;
-          result.completionValues.push(v);
+      if (result.hasUnfrozenKapow) {
+        // Special handling: one of the 2 revealed cards is an unfrozen KAPOW!
+        // KAPOW can take ANY value 0-12, so we test all combinations of
+        // (KAPOW value, empty slot value) to find completions.
+        // Find which revealed position is the KAPOW and which is the fixed card.
+        var kapowIdx = -1;
+        var fixedIdx = -1;
+        for (var ki = 0; ki < 3; ki++) {
+          if (ki === emptyIdx) continue;
+          var kCards = triad[positions[ki]];
+          if (kCards.length > 0 && kCards[0].type === 'kapow' && !kCards[0].isFrozen) {
+            kapowIdx = ki;
+          } else {
+            fixedIdx = ki;
+          }
+        }
+        if (kapowIdx >= 0 && fixedIdx >= 0) {
+          // Test: for each possible value in the empty slot, is there any KAPOW
+          // value (0-12) that completes the triad? If so, it's a completion path.
+          var fixedVal = result.values[fixedIdx];
+          var seenCompletions = {};
+          for (var ev = 0; ev <= 12; ev++) {
+            for (var kv = 0; kv <= 12; kv++) {
+              var testVals = [null, null, null];
+              testVals[fixedIdx] = fixedVal;
+              testVals[kapowIdx] = kv;
+              testVals[emptyIdx] = ev;
+              if (isSet(testVals) || isAscendingRun(testVals) || isDescendingRun(testVals)) {
+                if (!seenCompletions[ev]) {
+                  seenCompletions[ev] = true;
+                  result.completionPaths++;
+                  result.completionValues.push(ev);
+                }
+              }
+            }
+          }
+        }
+      } else {
+        // Standard: test what fixed value in the empty slot completes the triad
+        for (var v = 0; v <= 12; v++) {
+          var testValues = result.values.slice();
+          testValues[emptyIdx] = v;
+          if (isSet(testValues) || isAscendingRun(testValues) || isDescendingRun(testValues)) {
+            result.completionPaths++;
+            result.completionValues.push(v);
+          }
         }
       }
     }
@@ -1637,11 +1677,11 @@ function aiCountFutureCompletions(values) {
       result.bestPosition = pos;
     }
   }
-  // Power modifier bonus: check if Power cards applied to existing cards create completions
-  // without replacing any card (modifier shifts a value to complete the triad as-is)
-  var powerModPaths = aiCountPowerModifierPaths(values, []);
-  // Add at half weight since it requires drawing a Power card AND choosing modifier
-  result.totalPaths += Math.floor(powerModPaths / 2);
+  // NOTE: Power modifier paths intentionally NOT added to totalPaths.
+  // Including them inflated path counts for existing triads, making the AI over-value
+  // card-piling into developed triads vs. spreading to untouched ones. Power modifier
+  // paths are too speculative (require drawing a Power card + choosing correct modifier)
+  // to justify inflating the core path-counting metric.
   return result;
 }
 
@@ -1710,6 +1750,37 @@ function aiCountPowerModifierPaths(values, baseCompletionValues) {
 // Evaluate how well two revealed values in a triad work together toward completion
 // Returns a compatibility score: higher = better synergy
 function aiEvaluateCardSynergy(val1, pos1Idx, val2, pos2Idx) {
+  // Special case: if either value is 25 (unfrozen KAPOW), the KAPOW can take any value
+  // 0-12. Test all possible KAPOW values to find the best synergy.
+  if (val1 === 25 || val2 === 25) {
+    var kapowPosIdx = (val1 === 25) ? pos1Idx : pos2Idx;
+    var fixedVal = (val1 === 25) ? val2 : val1;
+    var fixedPosIdx = (val1 === 25) ? pos2Idx : pos1Idx;
+    var missingIdx2 = -1;
+    for (var mi = 0; mi < 3; mi++) {
+      if (mi !== kapowPosIdx && mi !== fixedPosIdx) { missingIdx2 = mi; break; }
+    }
+    if (missingIdx2 < 0) return 0;
+    // Count unique empty-slot values that complete with ANY KAPOW assignment
+    var seenVals = {};
+    for (var kv = 0; kv <= 12; kv++) {
+      var tv = [null, null, null];
+      tv[kapowPosIdx] = kv;
+      tv[fixedPosIdx] = fixedVal;
+      for (var ev = 0; ev <= 12; ev++) {
+        tv[missingIdx2] = ev;
+        if (isSet(tv) || isAscendingRun(tv) || isDescendingRun(tv)) {
+          seenVals[ev] = true;
+        }
+      }
+    }
+    var kapowPaths = 0;
+    for (var key in seenVals) {
+      if (seenVals.hasOwnProperty(key)) kapowPaths++;
+    }
+    return kapowPaths;
+  }
+
   // Build a test array with nulls for the missing position
   var testValues = [null, null, null];
   testValues[pos1Idx] = val1;
@@ -1717,7 +1788,6 @@ function aiEvaluateCardSynergy(val1, pos1Idx, val2, pos2Idx) {
 
   // Count how many values (0-12) in the missing slot complete the triad
   var paths = 0;
-  var baseCompletionVals = [];
   var missingIdx = -1;
   for (var i = 0; i < 3; i++) {
     if (testValues[i] === null) { missingIdx = i; break; }
@@ -1728,15 +1798,12 @@ function aiEvaluateCardSynergy(val1, pos1Idx, val2, pos2Idx) {
     testValues[missingIdx] = v;
     if (isSet(testValues) || isAscendingRun(testValues) || isDescendingRun(testValues)) {
       paths++;
-      baseCompletionVals.push(v);
     }
   }
   testValues[missingIdx] = null; // restore
 
-  // Add Power modifier paths at half weight: Power cards can shift either revealed card's
-  // value by +/-1 or +/-2, potentially creating new completion values in the missing slot
-  var powerPaths = aiCountPowerModifierPaths(testValues, baseCompletionVals);
-  return paths + Math.floor(powerPaths / 2);
+  // NOTE: Power modifier paths intentionally NOT included in synergy scoring.
+  return paths;
 }
 
 // Analyze what card values the opponent visibly needs.
@@ -1839,6 +1906,22 @@ function aiScorePlacement(hand, card, triadIndex, position) {
   var isUnrevealed = false;
   if (posCards.length > 0 && posCards[0].isRevealed) {
     currentValue = getPositionValue(posCards);
+    // KAPOW strategic value adjustment: an unfrozen KAPOW! card is scored at 25 points,
+    // but early in the round it has enormous strategic value as a wild card that can be
+    // swapped into any triad to complete it. Using the raw 25 for value delta makes
+    // replacing it look like a +18 improvement (25→7), which overwhelms all other
+    // scoring factors. Reduce the effective "cost" of KAPOW early to reflect that it
+    // will likely be used productively (swapped to complete a triad, shedding its points).
+    // Late game, KAPOW becomes a pure liability if not yet used, so keep full 25.
+    if (posCards[0].type === 'kapow' && !posCards[0].isFrozen && gameState) {
+      var kapowTurn = gameState.turnNumber;
+      if (kapowTurn <= 6) {
+        currentValue = 8;  // Early: KAPOW is likely to be used productively
+      } else if (kapowTurn <= 12) {
+        currentValue = 15; // Mid: still some chance to use it
+      }
+      // Late (>12): keep currentValue = 25 — it's a true liability
+    }
   } else if (posCards.length > 0 && !posCards[0].isRevealed) {
     currentValue = 6; // estimated average for unrevealed
     isUnrevealed = true;
@@ -1979,8 +2062,22 @@ function aiScorePlacement(hand, card, triadIndex, position) {
       if (directPaths === 0) {
         // Zero direct completion paths — this card doesn't work with the existing one.
         // Penalty scales with card value (placing a high misfit card is worse).
+        // BUT: soften the penalty early in the round. Early on, the third (face-down) card
+        // is unknown and building in any triad is still valuable. Applying a heavy penalty
+        // for "no synergy with 1 card" causes the AI to avoid spreading and instead pile
+        // cards into its strongest triad for marginal gains.
+        var turnNum3 = gameState ? gameState.turnNumber : 10;
         var valuePenalty1 = Math.max(0, newValue - 5);
-        existingSynergyPenalty = -8 - (valuePenalty1 * 2);
+        if (turnNum3 <= 6) {
+          // Early game: minimal penalty — spreading is more important than perfect synergy
+          existingSynergyPenalty = -2 - valuePenalty1;
+        } else if (turnNum3 <= 12) {
+          // Mid game: moderate penalty
+          existingSynergyPenalty = -5 - valuePenalty1;
+        } else {
+          // Late game: full penalty — no time to fix bad pairings
+          existingSynergyPenalty = -8 - (valuePenalty1 * 2);
+        }
       }
     } else if (existingRevealed.length === 2) {
       // Two revealed cards already — check their existing completion paths
@@ -2086,12 +2183,9 @@ function aiScorePlacement(hand, card, triadIndex, position) {
       if (futures.totalPaths > 0) {
         // This triad is close to completion — reward based on how many
         // future replacement paths exist (each path = a card that could finish it)
-        // totalPaths now includes Power modifier bonus from aiCountFutureCompletions
         score += 10 + (futures.totalPaths * 3);
-        // KAPOW boost: even 1 path means KAPOW! (6 in deck) could complete it
-        score += 2;
       } else {
-        // 3 revealed cards with zero future paths (even with Power modifiers) — very poor combination
+        // 3 revealed cards with zero future paths — very poor combination
         score -= 20;
       }
 
@@ -2115,24 +2209,48 @@ function aiScorePlacement(hand, card, triadIndex, position) {
           : (5 + (valueIncrease3 * 3));   // path regression: moderate penalty
         score -= Math.round(basePenalty3 * threatMultiplier);
       }
-    } else if (analysis.revealedCount === 2 && (analysis.completionPaths > 0 || analysis.powerModifierPaths > 0)) {
+    } else if (analysis.revealedCount === 2 && analysis.completionPaths > 0) {
       // Near-complete with completion paths — very valuable
       // More paths = more ways to complete = higher score
-      // Power modifier paths at half weight (require drawing Power + choosing modifier)
-      score += 15 + (analysis.completionPaths * 4) + (analysis.powerModifierPaths * 2);
-      // KAPOW boost: any triad with paths can also be completed by wild cards (6 in deck)
-      if (analysis.kapowBoost) score += 2;
+      // NOTE: Power modifier paths intentionally excluded from scoring here.
+      // Including them inflated the attractiveness of developed triads, causing the AI
+      // to pile cards into one triad instead of spreading to untouched ones.
+      score += 15 + (analysis.completionPaths * 4);
     } else if (analysis.revealedCount === 2 && analysis.completionPaths === 0) {
-      // Two revealed cards with NO path to completion (not even via Power modifiers) — BAD placement
+      // Two revealed cards with NO path to completion — BAD placement
       // Penalize heavily: these cards don't work together
       score -= 15;
     }
 
     // If triad only has 1 revealed card after placement (the one we just placed),
-    // that's fine — it's a seed for future building. Slight bonus for spreading.
+    // that's fine — it's a seed for future building. Bonus scales with how many
+    // untouched triads remain and how early we are in the round.
+    // Strategic reality: building in all 4 triads is critical early on. A card placed
+    // in an untouched triad starts building toward completion and the face-down neighbors
+    // might already be good fits. Piling cards into one triad for marginal point reduction
+    // leaves other triads undeveloped and wastes turns.
     if (analysis.revealedCount === 1 && isUnrevealed) {
-      // Placing into a fully unrevealed triad = spreading cards out
-      score += 5;
+      // Count fully untouched triads (all 3 positions face-down or empty)
+      var untouchedTriads = 0;
+      for (var ut = 0; ut < hand.triads.length; ut++) {
+        if (hand.triads[ut].isDiscarded) continue;
+        var utTriad = hand.triads[ut];
+        var hasRevealed = false;
+        var utPositions = ['top', 'middle', 'bottom'];
+        for (var up = 0; up < 3; up++) {
+          var utCards = utTriad[utPositions[up]];
+          if (utCards.length > 0 && utCards[0].isRevealed) { hasRevealed = true; break; }
+        }
+        if (!hasRevealed) untouchedTriads++;
+      }
+      var turnNum2 = gameState ? gameState.turnNumber : 10;
+      var earlyGameBoost = (turnNum2 <= 6) ? 6 : (turnNum2 <= 12 ? 3 : 0);
+      var untouchedBoost = (untouchedTriads >= 2) ? 6 : (untouchedTriads === 1 ? 3 : 0);
+      // Dampen spread bonus for high-value cards. Spreading a 2 is great (low risk),
+      // but spreading a 10 adds significant points to a new triad with unknown neighbors.
+      // Low cards (0-4) get full bonus; high cards (8+) get reduced bonus.
+      var valueSpreadDampen = (newValue <= 4) ? 1.0 : (newValue <= 7) ? 0.7 : 0.4;
+      score += Math.round((5 + earlyGameBoost + untouchedBoost) * valueSpreadDampen);
     }
 
     // Synergy check: if there's already a revealed card in this triad,
@@ -2140,13 +2258,28 @@ function aiScorePlacement(hand, card, triadIndex, position) {
     if (analysis.revealedCount === 2) {
       // Find the other revealed card's value and position
       var synergyAfter = 0;
+      var neighborValue = 0;
       for (var i = 0; i < 3; i++) {
         if (i === posIdx) continue;
         if (analysis.values[i] !== null) {
-          synergyAfter = aiEvaluateCardSynergy(newValue, posIdx, analysis.values[i], i);
+          neighborValue = analysis.values[i];
+          synergyAfter = aiEvaluateCardSynergy(newValue, posIdx, neighborValue, i);
           // synergy is the completion path count — weight it heavily
           score += synergyAfter * 3;
           break;
+        }
+      }
+
+      // HIGH-VALUE TRIAD URGENCY: When a triad has high-value existing cards,
+      // improving its completion paths is more urgent because those are the most
+      // expensive points to shed. A triad with a revealed 12 that gains a second
+      // completion path is much more valuable than spreading a 10 to a new triad.
+      // Only applies when the new card actually has synergy (paths > 0).
+      if (synergyAfter > 0 && isUnrevealed) {
+        var existingTriadValue = neighborValue;
+        // Scale bonus by the neighbor's value — high-value neighbors make this urgent
+        if (existingTriadValue >= 8) {
+          score += Math.round((existingTriadValue - 6) * 1.5); // +3 for 8, +9 for 12
         }
       }
 
@@ -2160,7 +2293,20 @@ function aiScorePlacement(hand, card, triadIndex, position) {
         // Penalty: base for breaking synergy + scaled by how much worse it got + value increase
         // Amplified by opponent threat — can't afford to lose ground when opponent may go out soon
         var synThreatMult = 1 + opponentThreat;
-        score -= Math.round((10 + (synergyLoss * 6) + (valueIncrease * 3)) * synThreatMult);
+        var synBasePenalty = 10 + (synergyLoss * 6) + (valueIncrease * 3);
+
+        // Extra penalty for breaking a matched pair (set potential).
+        // A matched pair [X,X] has set completion (needs another X) which uses one of the
+        // most common card values in the deck (8 copies for values 3-12). Replacing one card
+        // to save 1-2 points trades a high-probability completion path for a lower-probability
+        // run path. The near-complete bonus (+15+paths*4) fires after replacement, so this
+        // penalty must be strong enough to counteract it.
+        if (currentValue === neighborValue && newValue !== currentValue) {
+          // Breaking a matched pair — this is almost never worth it for marginal points
+          synBasePenalty += 15;
+        }
+
+        score -= Math.round(synBasePenalty * synThreatMult);
       }
     }
   }
@@ -2192,6 +2338,31 @@ function aiScorePlacement(hand, card, triadIndex, position) {
       // Placing into a fully unrevealed triad — small uncertainty cost
       score -= 1;
     }
+  }
+
+  // GENERAL POSITIONAL PREFERENCE: When placing into a face-down slot, prefer middle or
+  // bottom over top. The top position's card ends up on the discard pile when the triad
+  // completes (discard order: bottom → middle → top), making it available to the opponent.
+  // This is a mild universal preference — the AI doesn't need to know what the opponent
+  // needs; burying cards is always safer. Small enough that synergy/completion factors
+  // still dominate when they apply.
+  if (isUnrevealed && position === 'top') {
+    // Check if middle or bottom are also face-down (alternatives exist)
+    var hasLowerAlt = false;
+    var lowerPositions = ['middle', 'bottom'];
+    for (var lp = 0; lp < lowerPositions.length; lp++) {
+      var lpCards = triad[lowerPositions[lp]];
+      if (lpCards.length > 0 && !lpCards[0].isRevealed) {
+        hasLowerAlt = true;
+        break;
+      }
+    }
+    if (hasLowerAlt) {
+      score -= 3; // mild penalty — prefer middle/bottom when alternatives exist
+    }
+  } else if (isUnrevealed && position === 'middle') {
+    // Middle is the best position for runs (can go up or down), slight bonus
+    score += 1;
   }
 
   // DEFENSIVE PLACEMENT: Consider what card ends up in the TOP position of this triad
@@ -2531,6 +2702,38 @@ function aiFindModifierOpportunity(hand, drawnCard) {
       var usePositive = withPos <= withNeg;
       var improvement = currentValue - bestMod;
 
+      // Check if applying modifier would DESTROY existing synergy.
+      // If this triad has another revealed card that MATCHES this card's value (set potential),
+      // applying a modifier changes the value and destroys the matched pair.
+      // E.g., [12,12,?] → applying P2(-2) makes it [10,12,?] — kills the 12-12-12 set path.
+      var synergyDestroyPenalty = 0;
+      var otherRevealed = [];
+      for (var sp = 0; sp < 3; sp++) {
+        if (sp === p) continue; // skip the position we're modifying
+        var spCards = triad[positions[sp]];
+        if (spCards.length > 0 && spCards[0].isRevealed) {
+          otherRevealed.push(getPositionValue(spCards));
+        }
+      }
+      if (otherRevealed.length > 0) {
+        // Check synergy BEFORE modifier
+        var synergyBeforeMod = 0;
+        for (var sr = 0; sr < otherRevealed.length; sr++) {
+          if (otherRevealed[sr] === currentValue) synergyBeforeMod += 3; // matched pair = set potential
+          if (Math.abs(otherRevealed[sr] - currentValue) <= 2) synergyBeforeMod += 1; // run adjacent
+        }
+        // Check synergy AFTER modifier
+        var synergyAfterMod = 0;
+        for (var sr2 = 0; sr2 < otherRevealed.length; sr2++) {
+          if (otherRevealed[sr2] === bestMod) synergyAfterMod += 3;
+          if (Math.abs(otherRevealed[sr2] - bestMod) <= 2) synergyAfterMod += 1;
+        }
+        if (synergyAfterMod < synergyBeforeMod) {
+          // Modifier destroys existing synergy — heavy penalty
+          synergyDestroyPenalty = -(10 + (synergyBeforeMod - synergyAfterMod) * 5);
+        }
+      }
+
       // Simulate the powerset and check triad building
       var origCards = triad[positions[p]];
       var simCard = { id: drawnCard.id, type: 'power', faceValue: drawnCard.faceValue,
@@ -2548,7 +2751,7 @@ function aiFindModifierOpportunity(hand, drawnCard) {
 
       triad[positions[p]] = origCards; // restore
 
-      var totalScore = improvement + triadBonus;
+      var totalScore = improvement + triadBonus + synergyDestroyPenalty;
       if (totalScore > bestScore && totalScore > 0) {
         bestScore = totalScore;
         best = { type: 'add-powerset', triadIndex: t, position: positions[p],
@@ -3365,6 +3568,7 @@ function playAITurn() {
   // Step 1: Announce AI's turn
   gameState.aiHighlight = null;
   aiMoveExplanation = ''; // clear previous explanation
+  aiSwapHistory = []; // clear swap history to prevent stale data from previous turns
   gameState.message = "AI's turn...";
   refreshUI();
 
@@ -3498,17 +3702,22 @@ function aiStepPlace(action, drewFromDiscard, drawnDesc) {
 }
 
 // AI KAPOW swap: find beneficial swaps (triad completion, score improvement, or face-down on final turns)
-function aiFindBeneficialSwap(hand) {
+function aiFindBeneficialSwap(hand, swapHistory) {
   var swappable = findSwappableKapowCards(hand);
   var bestSwap = null;
   var bestImprovement = 0;
   var isFinalTurn = gameState && gameState.phase === 'finalTurns';
+  var history = swapHistory || [];
 
   for (var s = 0; s < swappable.length; s++) {
     var kapow = swappable[s];
     var targets = findSwapTargets(hand, kapow.triadIndex, kapow.position);
     for (var t = 0; t < targets.length; t++) {
       var target = targets[t];
+
+      // Prevent oscillation: don't swap a KAPOW to a position it was already swapped FROM
+      var targetKey = target.triadIndex + ':' + target.position;
+      if (history.indexOf(targetKey) >= 0) continue;
       var sourceCards = hand.triads[kapow.triadIndex][kapow.position];
       var targetCards = hand.triads[target.triadIndex][target.position];
       var targetIsRevealed = targetCards.length > 0 && targetCards[0].isRevealed;
@@ -3546,28 +3755,27 @@ function aiFindBeneficialSwap(hand) {
       }
 
       // Check score improvement and triad-building potential
-      // Swap back to get before score
+      // Analyze paths BEFORE swap (original positions)
       hand.triads[kapow.triadIndex][kapow.position] = sourceCards;
       hand.triads[target.triadIndex][target.position] = targetCards;
       var scoreBeforeSwap = scoreHand(hand);
+      var pathsBefore1 = aiAnalyzeTriad(hand.triads[kapow.triadIndex]).completionPaths;
+      var pathsBefore2 = aiAnalyzeTriad(hand.triads[target.triadIndex]).completionPaths;
 
-      // Re-swap to get after score
+      // Analyze AFTER swap
       hand.triads[kapow.triadIndex][kapow.position] = targetCards;
       hand.triads[target.triadIndex][target.position] = sourceCards;
       var scoreAfterSwap = scoreHand(hand);
+      var pathsAfter1 = aiAnalyzeTriad(hand.triads[kapow.triadIndex]).completionPaths;
+      var pathsAfter2 = aiAnalyzeTriad(hand.triads[target.triadIndex]).completionPaths;
 
-      // Also check triad-building: does the swap improve completion paths?
-      var analysisBefore1 = aiAnalyzeTriad(hand.triads[kapow.triadIndex]);
-      var analysisBefore2 = aiAnalyzeTriad(hand.triads[target.triadIndex]);
-
-      // Swap back
+      // Swap back to original state
       hand.triads[kapow.triadIndex][kapow.position] = sourceCards;
       hand.triads[target.triadIndex][target.position] = targetCards;
 
       var scoreImprovement = scoreBeforeSwap - scoreAfterSwap;
-      // Include both direct completion paths and Power modifier paths (at half weight)
-      var pathImprovement = (analysisBefore1.completionPaths + analysisBefore2.completionPaths)
-        + Math.floor((analysisBefore1.powerModifierPaths + analysisBefore2.powerModifierPaths) / 2);
+      // Path improvement = net change in total completion paths across both affected triads
+      var pathImprovement = (pathsAfter1 + pathsAfter2) - (pathsBefore1 + pathsBefore2);
 
       // Defensive positioning bonus: if KAPOW! is currently at top position,
       // swapping it to middle or bottom buries it in the discard pile.
@@ -3579,7 +3787,8 @@ function aiFindBeneficialSwap(hand) {
         defensiveBonus = -3; // penalty for moving KAPOW! to exposed top position
       }
 
-      // Accept if score improves by ≥5 or completion paths significantly increase
+      // Accept if total improvement meets threshold
+      // Score improvement + path delta (weighted) + defensive positioning
       var totalImprovement = scoreImprovement + (pathImprovement * 2) + defensiveBonus;
       if (totalImprovement >= 5 && totalImprovement > bestImprovement) {
         bestImprovement = totalImprovement;
@@ -3592,11 +3801,21 @@ function aiFindBeneficialSwap(hand) {
 }
 
 // Step 4: AI checks for KAPOW swaps
+// swapHistory tracks positions involved in swaps this turn to prevent infinite oscillation.
+// Format: array of "triadIndex:position" strings representing KAPOW destinations.
+var aiSwapHistory = [];
+
 function aiStepCheckSwap() {
   var aiHand = gameState.players[1].hand;
-  var swap = aiFindBeneficialSwap(aiHand);
+  var swap = aiFindBeneficialSwap(aiHand, aiSwapHistory);
 
   if (swap) {
+    // Record the swap destination so we don't swap the KAPOW back to its origin
+    var originKey = swap.from.triadIndex + ':' + swap.from.position;
+    if (aiSwapHistory.indexOf(originKey) === -1) {
+      aiSwapHistory.push(originKey);
+    }
+
     // Execute the swap
     swapKapowCard(aiHand, swap.from.triadIndex, swap.from.position, swap.to.triadIndex, swap.to.position);
     var fromLabel = 'Triad ' + (swap.from.triadIndex + 1) + ' (' + swap.from.position + ')';
