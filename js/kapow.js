@@ -345,7 +345,9 @@ function applyFirstOutPenalty(roundScores, firstOutIndex) {
   for (var i = 0; i < scores.length; i++) {
     if (i !== firstOutIndex && scores[i] < lowestOther) lowestOther = scores[i];
   }
-  if (lowestOther < firstOutScore) {
+  // First-out player is doubled unless they have the STRICTLY lowest score.
+  // A tie does NOT count as lowest — tied scores still get doubled.
+  if (lowestOther <= firstOutScore) {
     scores[firstOutIndex] = firstOutScore * 2;
   }
   return scores;
@@ -1931,7 +1933,22 @@ function aiScorePlacement(hand, card, triadIndex, position) {
 
   var newValue;
   if (card.type === 'kapow') {
-    newValue = 25; // unfrozen KAPOW penalty
+    // KAPOW strategic value adjustment for DRAWN KAPOW cards:
+    // Same logic as existing KAPOW in hand — early on, KAPOW is enormously valuable
+    // as a wild card (any value 0-12). Using raw 25 for newValue makes placing it look
+    // like adding 19 points (25-6), which causes the AI to discard KAPOW instead of
+    // placing it. But KAPOW in the middle of an untouched triad creates instant
+    // completion paths with almost any future card.
+    newValue = 25;
+    if (gameState) {
+      var kapowDrawTurn = gameState.turnNumber;
+      if (kapowDrawTurn <= 6) {
+        newValue = 8;  // Early: KAPOW is a strategic asset, not a liability
+      } else if (kapowDrawTurn <= 12) {
+        newValue = 15; // Mid: still valuable but less so
+      }
+      // Late (>12): keep 25 — running out of time to use it productively
+    }
   } else {
     newValue = card.faceValue;
   }
@@ -1939,7 +1956,9 @@ function aiScorePlacement(hand, card, triadIndex, position) {
   // FINAL TURN: pure score-shedding mode. No triad-building, no synergy, no path analysis.
   // The only goal is to minimize total hand score. Check for triad completion (removes all
   // those points) and otherwise just maximize the score reduction at each position.
+  // Use raw values for KAPOW — on final turn, it IS a 25-point liability with no future use.
   var isFinalTurn = gameState && gameState.phase === 'finalTurns';
+  var finalNewValue = (card.type === 'kapow') ? 25 : newValue;
   if (isFinalTurn) {
     // Check if placement completes a triad
     var origCardsFT = triad[position];
@@ -1956,12 +1975,12 @@ function aiScorePlacement(hand, card, triadIndex, position) {
         var ftCards = triad[positions[fti]];
         if (ftCards.length > 0) triadPointsFT += getPositionValue(ftCards);
       }
-      triadPointsFT += newValue; // include the card being placed
+      triadPointsFT += finalNewValue; // include the card being placed (raw 25 for KAPOW)
       return 200 + triadPointsFT; // huge bonus + scale by points removed
     }
 
     // No completion: pure score delta — replace the highest-value card possible
-    var scoreDelta = currentValue - newValue;
+    var scoreDelta = currentValue - finalNewValue;
     // Replace KAPOW cards (25 pts) even if new card is high
     if (posCards.length > 0 && posCards[0].isRevealed &&
         posCards[0].type === 'kapow' && !posCards[0].isFrozen) {
@@ -2099,21 +2118,48 @@ function aiScorePlacement(hand, card, triadIndex, position) {
           newCardFits = true;
         } else {
           // Check if placing this card IMPROVES future paths.
-          // Simply matching existing paths is NOT good enough because:
-          // - The face-down card might already be a completing value
-          // - Placing a high card raises the score for no benefit
+          // We need to balance two concerns:
+          // 1. The face-down card might already be a completing value (don't displace it for nothing)
+          // 2. High-value triads desperately need completion paths — shedding 24+ points on
+          //    completion is worth accepting a few extra points now
           var futureWithNew = aiCountFutureCompletions(testVals);
+          // Calculate triad's existing point value — high-value triads benefit enormously
+          // from completion paths because all those points are shed on completion.
+          var existingTriadValue = existingRevealed[0].value + existingRevealed[1].value;
+          // For high-value triads, also count Power modifier paths as realistic completion
+          // routes. Power modifier paths (P1 shifting a card ±1, P2 shifting ±2) were excluded
+          // from general scoring to prevent card-piling, but for the specific question "does
+          // this card FIT in this high-value triad?", they represent genuine ways to complete.
+          // E.g., [11,12,12] has 1 standard path (replace 11→12 for set) plus 1 Power path
+          // (P1+1 on 11→12 for set) = 2 effective paths.
+          var effectivePaths = futureWithNew.totalPaths;
+          if (existingTriadValue >= 16) {
+            // For 3-revealed triads, aiCountPowerModifierPaths counts unique {position, modifier}
+            // combos that complete the triad. baseCompletionValues is unused for 3-revealed.
+            var powerPaths = aiCountPowerModifierPaths(testVals, []);
+            effectivePaths += powerPaths;
+          }
           if (futureWithNew.totalPaths > existingPaths * 2) {
             newCardFits = true; // significantly improves flexibility
+          } else if (effectivePaths >= existingPaths * 2 && existingTriadValue >= 16) {
+            newCardFits = true; // doubles paths on high-value triad (including Power modifiers)
           } else if (futureWithNew.totalPaths > existingPaths && newValue <= 5) {
             newCardFits = true; // improves flexibility and card value is low
+          } else if (effectivePaths >= 2 && existingTriadValue >= 20) {
+            // High-value triads (20+ points visible) with meaningful completion routes:
+            // Even if we're not doubling existing paths, having 2+ ways to complete is
+            // strategically critical. Those 20+ points WILL be shed on completion.
+            newCardFits = true;
           }
         }
         if (!newCardFits) {
           // Placing this card HURTS or doesn't improve a promising triad.
           // Penalty scales with: existing synergy quality + card value increase.
+          // BUT: reduce penalty for high-value triads — even imperfect placement is
+          // better than leaving them with only face-down hope.
           var valuePenalty = Math.max(0, newValue - 6); // penalty for high cards
-          existingSynergyPenalty = -15 - (existingPaths * 5) - (valuePenalty * 2);
+          var triadValueReduction = (existingTriadValue >= 16) ? Math.min(10, Math.floor((existingTriadValue - 14) / 2)) : 0;
+          existingSynergyPenalty = -15 - (existingPaths * 5) - (valuePenalty * 2) + triadValueReduction;
         }
       }
     }
@@ -2249,8 +2295,23 @@ function aiScorePlacement(hand, card, triadIndex, position) {
       // Dampen spread bonus for high-value cards. Spreading a 2 is great (low risk),
       // but spreading a 10 adds significant points to a new triad with unknown neighbors.
       // Low cards (0-4) get full bonus; high cards (8+) get reduced bonus.
-      var valueSpreadDampen = (newValue <= 4) ? 1.0 : (newValue <= 7) ? 0.7 : 0.4;
+      // KAPOW cards get full bonus — they're the best possible seed card.
+      var valueSpreadDampen = (card.type === 'kapow') ? 1.0 :
+        (newValue <= 4) ? 1.0 : (newValue <= 7) ? 0.7 : 0.4;
       score += Math.round((5 + earlyGameBoost + untouchedBoost) * valueSpreadDampen);
+
+      // KAPOW middle position bonus: placing KAPOW in the middle of a triad gives it
+      // maximum completion flexibility. From the middle, KAPOW participates in both
+      // top-mid and mid-bottom pairs, meaning almost any card placed above or below
+      // creates at least 2 completion paths. This is unique to KAPOW (0-12 wildcard).
+      if (card.type === 'kapow' && position === 'middle') {
+        var kapowMidTurn = gameState ? gameState.turnNumber : 10;
+        if (kapowMidTurn <= 8) {
+          score += 10; // Strong bonus early — plenty of time to build around it
+        } else {
+          score += 5;  // Moderate bonus later
+        }
+      }
     }
 
     // Synergy check: if there's already a revealed card in this triad,
@@ -2624,18 +2685,62 @@ function aiShouldGoOutWithScore(gameState, aiScore) {
   }
 
   // Estimate opponent's FINAL score. The opponent gets one more turn after
-  // AI goes out, so they may improve. Conservatively estimate they'll reduce
-  // their score slightly (replace an average unrevealed card with a lower one).
+  // AI goes out, so they may improve. The key risk is triad completion — the opponent
+  // could complete a near-complete triad on their last turn, shedding 20+ points instantly.
+  // A flat "-3" estimate is dangerously naive when the opponent has near-complete triads.
   var opponentFinalEst = opponentEval.estimatedScore;
   if (opponentEval.unrevealedCount > 0) {
-    // Opponent may reveal face-down cards that are lower than estimated avg of 6
-    // Conservative: assume they improve by ~3 points per unrevealed on last turn
-    // (they get to draw and place optimally, but only 1 turn)
     opponentFinalEst = Math.max(0, opponentFinalEst - 3);
   }
+  // Scan opponent's triads for near-complete ones (2 revealed with completion paths).
+  // Each near-complete triad represents a realistic chance of the opponent shedding
+  // its full value on their final turn. Factor this into the estimate.
+  var opponentHand = gameState.players[0].hand;
+  var opponentCompletionRisk = 0;
+  for (var ot = 0; ot < opponentHand.triads.length; ot++) {
+    var oTriad = opponentHand.triads[ot];
+    if (oTriad.isDiscarded) continue;
+    var oAnalysis = aiAnalyzeTriad(oTriad);
+    if (oAnalysis.isNearComplete && oAnalysis.completionPaths > 0) {
+      // Opponent has a near-complete triad — they could complete it with one card.
+      // More completion paths = higher probability. Estimate the points that would
+      // be shed: all revealed values in the triad + estimated unrevealed (~6).
+      var triadPoints = 0;
+      var oPositions = ['top', 'middle', 'bottom'];
+      for (var op = 0; op < 3; op++) {
+        var oPosCards = oTriad[oPositions[op]];
+        if (oPosCards.length > 0 && oPosCards[0].isRevealed) {
+          triadPoints += getPositionValue(oPosCards);
+        } else {
+          triadPoints += 6;
+        }
+      }
+      // Scale by path count: more paths = more likely to complete.
+      // With 1 path: ~8% chance per draw (1/13). With 3 paths: ~23%.
+      // But also consider Power modifiers and KAPOW cards in deck.
+      // Use a conservative estimate: min(completionPaths * 0.08, 0.4) probability.
+      var completionProb = Math.min(oAnalysis.completionPaths * 0.08, 0.4);
+      opponentCompletionRisk += Math.round(triadPoints * completionProb);
+    }
+    // 3-revealed non-complete triads can also be completed via single replacement
+    if (oAnalysis.revealedCount === 3 && !isTriadComplete(oTriad)) {
+      var futureOpp = aiCountFutureCompletions(oAnalysis.values.slice());
+      if (futureOpp.totalPaths > 0) {
+        var oTriadScore = 0;
+        for (var op2 = 0; op2 < 3; op2++) {
+          oTriadScore += oAnalysis.values[op2] || 0;
+        }
+        var replaceProb = Math.min(futureOpp.totalPaths * 0.08, 0.4);
+        opponentCompletionRisk += Math.round(oTriadScore * replaceProb);
+      }
+    }
+  }
+  // Reduce the opponent's estimated final score by the completion risk
+  opponentFinalEst = Math.max(0, opponentFinalEst - opponentCompletionRisk);
 
-  // Would we be doubled? First-out player's score is doubled if it's NOT the lowest.
-  var wouldBeDoubled = aiScore > opponentFinalEst;
+  // Would we be doubled? First-out player's score is doubled if it's NOT the STRICTLY
+  // lowest. A tie means BOTH players get doubled — so AI must be strictly lower to avoid it.
+  var wouldBeDoubled = aiScore >= opponentFinalEst;
 
   if (wouldBeDoubled) {
     var doubledScore = aiScore * 2;
@@ -2655,8 +2760,18 @@ function aiShouldGoOutWithScore(gameState, aiScore) {
     }
   }
 
-  // Safe to go out: AI score is lower than opponent's estimated final score
-  if (aiScore <= opponentFinalEst) {
+  // HIGH SCORE CAUTION: Even if estimates say we're winning, going out with a high
+  // score (20+) is risky when the margin is thin. Doubling 20+ points is catastrophic
+  // if the estimate is wrong. Only block if the margin is slim (within 10 points of
+  // estimated opponent score) AND opponent still has unknowns that could swing things.
+  if (aiScore >= 20 && opponentEval.unrevealedCount > 0 &&
+      aiScore >= opponentFinalEst - 10) {
+    return { shouldGoOut: false, reason: 'score too high with uncertain margin (' + aiScore + ' vs est. ' + opponentFinalEst + ')' };
+  }
+
+  // Safe to go out: AI score is STRICTLY lower than opponent's estimated final score.
+  // A tie means doubling — only go out with a clear advantage.
+  if (aiScore < opponentFinalEst) {
     return { shouldGoOut: true, reason: 'score advantage, going out' };
   }
 
