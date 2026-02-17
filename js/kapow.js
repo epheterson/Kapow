@@ -1275,31 +1275,63 @@ function buildAiExplanation(gameState, drawnCard, drawChoice, action) {
   }
 
   if (action.type === 'discard') {
-    lines.push('<p class="explain-step"><span class="explain-label">Action:</span> AI discarded ' + drawnDesc + '. None of the placement options improved AI\'s hand enough to justify keeping this card.');
-    // Check if defensive discard
+    lines.push('<p class="explain-step"><span class="explain-label">Action:</span> AI discarded ' + drawnDesc + '.</p>');
+    // Explain why
+    var discardReasons = [];
     var oppNeeds = aiGetOpponentNeeds(gameState);
     var cardVal = drawnCard.type === 'fixed' ? drawnCard.faceValue : -1;
-    if (cardVal >= 0 && oppNeeds[cardVal] && oppNeeds[cardVal] >= 2) {
-      lines.push(' <em>Note: this card may help you — AI couldn\'t find a better option.</em>');
+    if (drawnCard.faceValue >= 8) {
+      discardReasons.push('High-value cards (8+) are risky to place unless they build toward a triad completion');
     }
-    lines.push('</p>');
+    if (cardVal >= 0 && oppNeeds[cardVal] && oppNeeds[cardVal] >= 2) {
+      discardReasons.push('<em>Caution: this card may help your triads — but AI had no better option than to discard it</em>');
+    }
+    if (discardReasons.length > 0) {
+      lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> ' + discardReasons.join('. ') + '. When no placement improves your hand, discarding is the right play — don\'t waste a slot on a card that doesn\'t fit.</p>');
+    } else {
+      lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> None of the placement options improved AI\'s hand enough to justify keeping this card. Sometimes the best move is to pass and wait for a better card.</p>');
+    }
   } else if (action.type === 'powerset-on-power') {
     var existingPower = aiHand.triads[action.triadIndex][action.position][0];
     var modValue = action.usePositive ? existingPower.modifiers[1] : existingPower.modifiers[0];
     var modSign = modValue >= 0 ? '+' : '';
-    lines.push('<p class="explain-step"><span class="explain-label">Action:</span> AI created a powerset in Triad ' + (action.triadIndex + 1) + '. ');
-    lines.push('The drawn card sits on top of a Power card, which acts as a modifier (' + modSign + modValue + '). This lowers the effective value of that position.</p>');
+    var posLabel2 = action.position.charAt(0).toUpperCase() + action.position.slice(1);
+    var faceVal = drawnCard.faceValue;
+    var effectiveVal = faceVal + modValue;
+    lines.push('<p class="explain-step"><span class="explain-label">Action:</span> AI created a powerset in Triad ' + (action.triadIndex + 1) + ' (' + posLabel2 + '). The drawn ' + drawnDesc + ' sits on top of a Power ' + existingPower.faceValue + ' card, which acts as a modifier (' + modSign + modValue + '). The effective value is now ' + effectiveVal + ' instead of ' + faceVal + '.</p>');
+    lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> Powersets are powerful because they let you change a card\'s effective value. Using a negative modifier can turn a medium card into a low-value one, reducing points and potentially enabling triad completion.</p>');
   } else if (action.type === 'add-powerset') {
-    lines.push('<p class="explain-step"><span class="explain-label">Action:</span> AI used the drawn Power card as a modifier in Triad ' + (action.triadIndex + 1) + ', stacking it beneath an existing card to change its effective value.</p>');
+    var posLabel3 = action.position.charAt(0).toUpperCase() + action.position.slice(1);
+    var targetCards = aiHand.triads[action.triadIndex][action.position];
+    var targetDesc = targetCards.length > 0 ? cardDescription(targetCards[0]) : 'the card';
+    var modVal2 = action.usePositive ? drawnCard.modifiers[1] : drawnCard.modifiers[0];
+    var modSign2 = modVal2 >= 0 ? '+' : '';
+    var oldEffective = targetCards.length > 0 ? getPositionValue(targetCards) : 0;
+    var newEffective = oldEffective + modVal2;
+    lines.push('<p class="explain-step"><span class="explain-label">Action:</span> AI used the drawn Power ' + drawnCard.faceValue + ' card as a modifier (' + modSign2 + modVal2 + ') beneath ' + targetDesc + ' in Triad ' + (action.triadIndex + 1) + ' (' + posLabel3 + '). The effective value changes from ' + oldEffective + ' to ' + newEffective + '.</p>');
+    lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> Stacking a Power card as a modifier beneath an existing card changes its effective value without using a placement slot. This can bring a card closer to matching its neighbors for a set or run.</p>');
   } else if (action.type === 'replace') {
     var triad = aiHand.triads[action.triadIndex];
     var posLabel = action.position.charAt(0).toUpperCase() + action.position.slice(1);
     var posCards = triad[action.position];
+    var replacedWasRevealed = posCards.length > 0 && posCards[0].isRevealed;
+    var replacedDesc = replacedWasRevealed ? cardDescription(posCards[0]) : 'a face-down card';
+    var replacedVal = replacedWasRevealed ? getPositionValue(posCards) : -1;
 
-    lines.push('<p class="explain-step"><span class="explain-label">Action:</span> AI placed ' + drawnDesc + ' in Triad ' + (action.triadIndex + 1) + ' (' + posLabel + ').');
+    // Build the base placement message with replaced card info
+    var placementMsg = 'AI placed ' + drawnDesc + ' in Triad ' + (action.triadIndex + 1) + ' (' + posLabel + '), replacing ' + replacedDesc + '.';
+    if (replacedWasRevealed) {
+      var newVal = drawnCard.type === 'kapow' ? 25 : (drawnCard.type === 'power' ? drawnCard.faceValue : drawnCard.faceValue);
+      var pointChange = replacedVal - newVal;
+      if (pointChange > 0) {
+        placementMsg += ' This saves ' + pointChange + ' points at that position.';
+      } else if (pointChange < 0) {
+        placementMsg += ' This adds ' + Math.abs(pointChange) + ' points at that position, but the strategic value outweighs the cost.';
+      }
+    }
+    lines.push('<p class="explain-step"><span class="explain-label">Action:</span> ' + placementMsg + '</p>');
 
-    // Why this position?
-    // Check for triad completion
+    // WHY this position — check for triad completion
     var origCards = triad[action.position];
     var newCard = { id: drawnCard.id, type: drawnCard.type, faceValue: drawnCard.faceValue,
       modifiers: drawnCard.modifiers, isRevealed: true, isFrozen: false, assignedValue: null };
@@ -1308,24 +1340,54 @@ function buildAiExplanation(gameState, drawnCard, drawChoice, action) {
     triad[action.position] = origCards;
 
     if (wouldComplete) {
-      lines.push(' This completes the triad, discarding all three cards and removing those points from AI\'s score.</p>');
+      // Calculate total points being shed
+      var triadPointsShed = 0;
+      var triadPositions = ['top', 'middle', 'bottom'];
+      for (var tp = 0; tp < 3; tp++) {
+        var tpCards = tp === triadPositions.indexOf(action.position) ? [newCard] : triad[triadPositions[tp]];
+        if (tpCards.length > 0) triadPointsShed += getPositionValue(tpCards);
+      }
+      lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> This completes the triad! All three cards are discarded, removing ' + triadPointsShed + ' points from AI\'s score. Completing triads is the most powerful move in the game.</p>');
     } else {
       // Analyze AFTER simulated placement to explain what this builds toward
       triad[action.position] = [newCard];
       var analysis = aiAnalyzeTriad(triad);
       triad[action.position] = origCards;
+
+      // Show the triad state after placement
+      var triadStateDesc = [];
+      var triadPositions2 = ['top', 'middle', 'bottom'];
+      for (var ts = 0; ts < 3; ts++) {
+        var tsCards = triad[triadPositions2[ts]];
+        if (triadPositions2[ts] === action.position) {
+          triadStateDesc.push(drawnDesc);
+        } else if (tsCards.length > 0 && tsCards[0].isRevealed) {
+          triadStateDesc.push(cardDescription(tsCards[0]));
+        } else if (tsCards.length > 0) {
+          triadStateDesc.push('?');
+        } else {
+          triadStateDesc.push('empty');
+        }
+      }
+      var triadVisual = 'Triad ' + (action.triadIndex + 1) + ' is now [' + triadStateDesc.join(', ') + '].';
+
       if (analysis.revealedCount >= 2 && (analysis.completionPaths > 0 || analysis.powerModifierPaths > 0)) {
-        var pathDesc = analysis.completionPaths + ' card value(s) that could finish it';
+        var pathParts = [];
+        if (analysis.completionPaths > 0) {
+          pathParts.push(analysis.completionPaths + ' standard card value(s)');
+        }
         if (analysis.powerModifierPaths > 0) {
-          pathDesc += ', plus ' + analysis.powerModifierPaths + ' additional way(s) via Power card modifiers';
+          pathParts.push(analysis.powerModifierPaths + ' Power card modifier combination(s)');
         }
+        var pathDesc = pathParts.join(' and ');
         if (analysis.kapowBoost) {
-          pathDesc += '. KAPOW! wild cards could also complete it';
+          pathDesc += ', plus any KAPOW! wild card';
         }
-        lines.push(' This builds toward completing the triad — there are ' + pathDesc + '.</p>');
-      } else if (posCards.length > 0 && !posCards[0].isRevealed) {
-        // Check if the new card has synergy with existing neighbor(s)
+        lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> ' + triadVisual + ' This triad can be completed by ' + pathDesc + '. Building toward triad completion is key — it removes all the triad\'s points from your score at once.</p>');
+      } else if (!replacedWasRevealed) {
+        // Replaced a face-down card
         var neighborSynergy = false;
+        var synergyWith = '';
         for (var ni = 0; ni < 3; ni++) {
           var nPos = ['top', 'middle', 'bottom'][ni];
           if (nPos === action.position) continue;
@@ -1335,24 +1397,21 @@ function buildAiExplanation(gameState, drawnCard, drawChoice, action) {
               drawnCard.type === 'fixed' ? drawnCard.faceValue : 0, ['top', 'middle', 'bottom'].indexOf(action.position),
               getPositionValue(nCards), ni
             );
-            if (nSyn > 0) neighborSynergy = true;
+            if (nSyn > 0) {
+              neighborSynergy = true;
+              synergyWith = cardDescription(nCards[0]) + ' at ' + nPos;
+            }
           }
         }
         if (neighborSynergy) {
-          lines.push(' AI replaced a face-down card — this card works well with the existing card(s) in this triad.</p>');
+          lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> ' + triadVisual + ' This card has good synergy with ' + synergyWith + ' — they could form part of a set or run together. When cards work well together, future cards are more likely to complete the triad.</p>');
         } else {
-          lines.push(' AI replaced a face-down card to start building this triad.</p>');
+          lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> ' + triadVisual + ' AI replaced a face-down card (unknown value) with a known low card to start building this triad. Even without obvious synergy yet, placing low-value cards reduces risk.</p>');
         }
-      } else if (posCards.length > 0 && posCards[0].isRevealed) {
-        var oldVal = getPositionValue(posCards);
-        var newVal = drawnCard.type === 'kapow' ? 25 : drawnCard.faceValue;
-        if (newVal < oldVal) {
-          lines.push(' This reduces the score in that position by ' + (oldVal - newVal) + ' points.</p>');
-        } else {
-          lines.push('</p>');
-        }
+      } else if (replacedWasRevealed && replacedVal > newVal) {
+        lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> ' + triadVisual + ' Reducing the value of cards that aren\'t part of a near-complete triad helps minimize your score if you can\'t complete the triad before the round ends.</p>');
       } else {
-        lines.push('</p>');
+        lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> ' + triadVisual + '</p>');
       }
     }
 
