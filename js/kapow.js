@@ -2437,6 +2437,46 @@ function aiScorePlacement(hand, card, triadIndex, position) {
           : (5 + (valueIncrease3 * 3));   // path regression: moderate penalty
         score -= Math.round(basePenalty3 * threatMultiplier);
       }
+
+      // HIGH-VALUE TRIAD COMPLETION PRIORITY: In 3-revealed triads with high total value
+      // and existing completion paths, the priority is COMPLETING the triad (shedding all
+      // its points), not reducing one card's value. E.g., [11,12,12] → [0,12,12] saves 11
+      // points on the card but leaves 24 points stuck in a harder-to-complete triad.
+      // The replaced card may have been closer to completion values (e.g., 11 is one P1+1
+      // away from 12 for a set). Penalize pure score-shedding in high-value triads early
+      // in the round when completion should be the goal.
+      if (!isUnrevealed && futures.totalPaths <= pathsBefore && futures.totalPaths > 0) {
+        var triadTotal = 0;
+        for (var tv = 0; tv < analysis.values.length; tv++) {
+          triadTotal += analysis.values[tv] || 0;
+        }
+        if (triadTotal >= 20) {
+          // Check if the replaced card was closer to any completion value than the new card.
+          // Completion values = values that would complete the triad if placed at THIS position.
+          var completionValsAtPos = [];
+          for (var cv = 0; cv <= 12; cv++) {
+            var testValsCV = analysis.values.slice();
+            testValsCV[posIdx] = cv;
+            if (isSet(testValsCV) || isAscendingRun(testValsCV) || isDescendingRun(testValsCV)) {
+              completionValsAtPos.push(cv);
+            }
+          }
+          // How close was the old card vs new card to any completion value?
+          var oldMinDist = 99, newMinDist = 99;
+          for (var cd = 0; cd < completionValsAtPos.length; cd++) {
+            oldMinDist = Math.min(oldMinDist, Math.abs(currentValue - completionValsAtPos[cd]));
+            newMinDist = Math.min(newMinDist, Math.abs(newValue - completionValsAtPos[cd]));
+          }
+          // Penalize if new card is farther from completion than old card
+          if (newMinDist > oldMinDist && oldMinDist <= 2) {
+            // Old card was within Power modifier range (±1 or ±2) of completion;
+            // new card moved away from it. Scale penalty by triad value — higher value
+            // triads need completion more urgently.
+            var distPenalty = Math.round((triadTotal / 5) + (newMinDist - oldMinDist) * 4);
+            score -= distPenalty;
+          }
+        }
+      }
     } else if (analysis.revealedCount === 2 && analysis.completionPaths > 0) {
       // Near-complete with completion paths — very valuable
       // More paths = more ways to complete = higher score
@@ -4003,7 +4043,8 @@ function aiStepDraw() {
   }
 
   // AI Banter: comment on drawing from discard pile
-  if (drewFrom === 'discard' && gameState.drawnCard) {
+  // Only taunt if opponent knowingly provided the card (not a face-down they didn't know about)
+  if (drewFrom === 'discard' && gameState.drawnCard && gameState.lastDiscardKnown) {
     if (gameState.drawnCard.type === 'kapow') {
       generateAIBanter(gameState, 'ai_grabs_kapow');
     } else if (Math.random() < 0.3) {
