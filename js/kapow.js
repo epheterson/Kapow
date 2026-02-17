@@ -751,6 +751,13 @@ function handleDrawFromDiscard(state) {
     state.drawnCard = result.card;
     state.drawnFromDiscard = true;
     state.discardPile = result.pile;
+    // If discard pile is now empty, replenish with top card from draw pile
+    if (state.discardPile.length === 0 && state.drawPile.length > 0) {
+      var replenishCard = state.drawPile.pop();
+      replenishCard.isRevealed = true;
+      state.discardPile.push(replenishCard);
+      logSystem(state, 'Discard pile empty — top card from draw pile flipped to discard');
+    }
     var desc = cardDescription(result.card);
     logAction(state, state.currentPlayer, 'Draws ' + desc + ' from discard pile');
     if (result.card.type === 'power') {
