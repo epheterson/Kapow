@@ -3164,6 +3164,163 @@ function aiFindModifierOpportunity(hand, drawnCard) {
 // UI RENDERING
 // ========================================
 
+// Animated triad discard: shows cards disappearing one by one (bottom → mid → top)
+// containerId: 'player-hand' or 'ai-hand'
+// triadIndex: which triad (0-3)
+// isOpponent: whether this is the AI hand (affects render order)
+// savedCards: { top: posCards[], middle: posCards[], bottom: posCards[] } — cards before discard
+// callback: called when animation completes
+function animateTriadDiscard(containerId, triadIndex, isOpponent, savedCards, callback) {
+  var container = document.getElementById(containerId);
+  if (!container) { if (callback) callback(); return; }
+
+  // Find the triad column in the DOM (0-indexed child matching triad order)
+  var triadColumns = container.querySelectorAll('.triad-column');
+  var triadEl = triadColumns[triadIndex];
+  if (!triadEl) { if (callback) callback(); return; }
+
+  // The render order in the DOM: for AI (isOpponent=true) it's [bottom, middle, top],
+  // for player it's [top, middle, bottom]. But discard order is always bottom → mid → top.
+  // We need to find which DOM slot corresponds to each position.
+  var renderOrder = isOpponent ? ['bottom', 'middle', 'top'] : ['top', 'middle', 'bottom'];
+  var discardOrder = ['bottom', 'middle', 'top'];
+
+  // Get position-slot elements (skip the triad-label which is the first child)
+  var posSlots = triadEl.querySelectorAll('.position-slot');
+
+  // Map discard order to DOM slot indices
+  var discardSlotIndices = [];
+  for (var d = 0; d < discardOrder.length; d++) {
+    for (var r = 0; r < renderOrder.length; r++) {
+      if (renderOrder[r] === discardOrder[d]) {
+        discardSlotIndices.push(r);
+        break;
+      }
+    }
+  }
+
+  // Highlight the triad column as completing
+  triadEl.classList.add('triad-completing');
+
+  // Add the discarding class to all position slots that have cards
+  for (var i = 0; i < posSlots.length; i++) {
+    var cardEl = posSlots[i].querySelector('.card');
+    if (cardEl) {
+      cardEl.classList.add('triad-card-discarding');
+    }
+  }
+
+  // Animate cards away one at a time: bottom, then middle, then top
+  var step = 0;
+  function animateNext() {
+    if (step >= discardSlotIndices.length) {
+      // Animation complete — call back
+      if (callback) callback();
+      return;
+    }
+    var slotIdx = discardSlotIndices[step];
+    var slot = posSlots[slotIdx];
+    if (slot) {
+      var cardEl = slot.querySelector('.card');
+      if (cardEl) {
+        cardEl.classList.add('card-gone');
+      }
+      // Also fade powerset info if present
+      var powersetEl = slot.querySelector('.powerset-info');
+      if (powersetEl) {
+        powersetEl.style.transition = 'opacity 0.25s ease-out';
+        powersetEl.style.opacity = '0';
+      }
+    }
+    step++;
+    setTimeout(animateNext, 250);
+  }
+
+  // Start with a brief pause so the player sees the completed state first
+  setTimeout(animateNext, 300);
+}
+
+// Detect newly discarded triads and animate them.
+// Takes before/after discard status, runs animation, then calls callback.
+// triadsBefore: array of booleans (isDiscarded state before action)
+// playerIndex: 0 = human, 1 = AI
+// callback: called when all animations complete (or immediately if none)
+function animateNewlyDiscardedTriads(triadsBefore, playerIndex, callback) {
+  var hand = gameState.players[playerIndex].hand;
+  var containerId = playerIndex === 0 ? 'player-hand' : 'ai-hand';
+  var isOpponent = playerIndex === 1;
+  var newlyDiscarded = [];
+
+  for (var t = 0; t < hand.triads.length; t++) {
+    if (!triadsBefore[t] && hand.triads[t].isDiscarded) {
+      newlyDiscarded.push(t);
+    }
+  }
+
+  if (newlyDiscarded.length === 0) {
+    if (callback) callback();
+    return;
+  }
+
+  // For each newly discarded triad, run the animation sequentially
+  var idx = 0;
+  function animateNextTriad() {
+    if (idx >= newlyDiscarded.length) {
+      if (callback) callback();
+      return;
+    }
+    var triadIndex = newlyDiscarded[idx];
+    idx++;
+    animateTriadDiscard(containerId, triadIndex, isOpponent, null, animateNextTriad);
+  }
+
+  animateNextTriad();
+}
+
+// Helper: run a handler that may complete a triad, then animate + refreshUI.
+// playerIndex: which player's triads to watch (0=human, 1=AI)
+// handlerFn: function to call that modifies state (e.g., handlePlaceCard)
+// Used by _onCardClick for human player triad completion animations.
+function runWithTriadAnimation(playerIndex, handlerFn) {
+  var hand = gameState.players[playerIndex].hand;
+  var triadsBefore = [];
+  for (var t = 0; t < hand.triads.length; t++) {
+    triadsBefore.push(hand.triads[t].isDiscarded);
+  }
+
+  // Execute the handler (which may call checkAndDiscardTriads internally)
+  handlerFn();
+
+  // Check for newly discarded triads
+  var newlyDiscarded = [];
+  for (var n = 0; n < hand.triads.length; n++) {
+    if (!triadsBefore[n] && hand.triads[n].isDiscarded) {
+      newlyDiscarded.push(n);
+    }
+  }
+
+  if (newlyDiscarded.length > 0) {
+    // Block AI turn start during animation
+    triadAnimationInProgress = true;
+    // Temporarily undo isDiscarded so refreshUI renders cards still visible
+    for (var u = 0; u < newlyDiscarded.length; u++) {
+      hand.triads[newlyDiscarded[u]].isDiscarded = false;
+    }
+    refreshUI();
+    // Restore isDiscarded
+    for (var u2 = 0; u2 < newlyDiscarded.length; u2++) {
+      hand.triads[newlyDiscarded[u2]].isDiscarded = true;
+    }
+    // Animate cards disappearing, then do final refresh
+    animateNewlyDiscardedTriads(triadsBefore, playerIndex, function() {
+      triadAnimationInProgress = false;
+      refreshUI();
+    });
+  } else {
+    refreshUI();
+  }
+}
+
 function renderCardHTML(card, faceDown, clickable) {
   var classes = 'card';
   if (clickable) classes += ' clickable';
@@ -3398,6 +3555,7 @@ function renderDrawPile(state) {
 var gameState = null;
 var playerName = 'Player';
 var aiTurnInProgress = false;
+var triadAnimationInProgress = false;
 
 function init() {
   // Show name entry screen
@@ -3602,8 +3760,8 @@ function refreshUI() {
     showGameOver();
   }
 
-  // AI turn — only trigger if not already in progress
-  if (!isHumanTurn && !aiTurnInProgress && (phase === 'playing' || phase === 'finalTurns')) {
+  // AI turn — only trigger if not already in progress and no triad animation playing
+  if (!isHumanTurn && !aiTurnInProgress && !triadAnimationInProgress && (phase === 'playing' || phase === 'finalTurns')) {
     aiTurnInProgress = true;
     setTimeout(playAITurn, 1000);
   }
@@ -3736,21 +3894,22 @@ window._onCardClick = function(triadIndex, position) {
     if (validTarget) {
       var fromSwapLabel = 'Triad ' + (from.triadIndex + 1) + ' (' + from.position + ')';
       var toSwapLabel = 'Triad ' + (triadIndex + 1) + ' (' + position + ')';
-      swapKapowCard(hand, from.triadIndex, from.position, triadIndex, position);
-      logAction(gameState, 0, 'Swaps KAPOW! from ' + fromSwapLabel + ' to ' + toSwapLabel);
-      gameState.selectedKapow = null;
-      checkAndDiscardTriads(gameState, gameState.currentPlayer);
-      logHandState(gameState, 0);
+      runWithTriadAnimation(0, function() {
+        swapKapowCard(hand, from.triadIndex, from.position, triadIndex, position);
+        logAction(gameState, 0, 'Swaps KAPOW! from ' + fromSwapLabel + ' to ' + toSwapLabel);
+        gameState.selectedKapow = null;
+        checkAndDiscardTriads(gameState, gameState.currentPlayer);
+        logHandState(gameState, 0);
 
-      // Check if more swaps are available
-      var remaining = findSwappableKapowCards(hand);
-      if (remaining.length > 0) {
-        gameState.message = 'KAPOW! swapped! Swap another, or End Turn.';
-      } else {
-        gameState.awaitingKapowSwap = false;
-        endTurn(gameState);
-      }
-      refreshUI();
+        // Check if more swaps are available
+        var remaining = findSwappableKapowCards(hand);
+        if (remaining.length > 0) {
+          gameState.message = 'KAPOW! swapped! Swap another, or End Turn.';
+        } else {
+          gameState.awaitingKapowSwap = false;
+          endTurn(gameState);
+        }
+      });
     }
     return;
   }
@@ -3775,8 +3934,9 @@ window._onCardClick = function(triadIndex, position) {
             { label: '+' + drawnCard.modifiers[1] + ' (positive)', value: 'positive', style: 'primary' },
             { label: drawnCard.modifiers[0] + ' (negative)', value: 'negative', style: 'secondary' }
           ]).then(function(modChoice) {
-            handleAddPowerset(gameState, triadIndex, position, modChoice === 'positive');
-            refreshUI();
+            runWithTriadAnimation(0, function() {
+              handleAddPowerset(gameState, triadIndex, position, modChoice === 'positive');
+            });
           });
         } else if (choice === 'target-mod') {
           var existingPower = targetPosCards[0];
@@ -3784,12 +3944,14 @@ window._onCardClick = function(triadIndex, position) {
             { label: '+' + existingPower.modifiers[1] + ' (positive)', value: 'positive', style: 'primary' },
             { label: existingPower.modifiers[0] + ' (negative)', value: 'negative', style: 'secondary' }
           ]).then(function(modChoice) {
-            handleCreatePowersetOnPower(gameState, triadIndex, position, modChoice === 'positive');
-            refreshUI();
+            runWithTriadAnimation(0, function() {
+              handleCreatePowersetOnPower(gameState, triadIndex, position, modChoice === 'positive');
+            });
           });
         } else {
-          handlePlaceCard(gameState, triadIndex, position);
-          refreshUI();
+          runWithTriadAnimation(0, function() {
+            handlePlaceCard(gameState, triadIndex, position);
+          });
         }
       });
       return;
@@ -3810,12 +3972,14 @@ window._onCardClick = function(triadIndex, position) {
             { label: '+' + drawnCard.modifiers[1] + ' (positive)', value: 'positive', style: 'primary' },
             { label: drawnCard.modifiers[0] + ' (negative)', value: 'negative', style: 'secondary' }
           ]).then(function(modChoice) {
-            handleAddPowerset(gameState, triadIndex, position, modChoice === 'positive');
-            refreshUI();
+            runWithTriadAnimation(0, function() {
+              handleAddPowerset(gameState, triadIndex, position, modChoice === 'positive');
+            });
           });
         } else {
-          handlePlaceCard(gameState, triadIndex, position);
-          refreshUI();
+          runWithTriadAnimation(0, function() {
+            handlePlaceCard(gameState, triadIndex, position);
+          });
         }
       });
       return;
@@ -3828,8 +3992,9 @@ window._onCardClick = function(triadIndex, position) {
         { label: 'Choose Different Spot', value: 'cancel', style: 'secondary' }
       ]).then(function(choice) {
         if (choice === 'replace') {
-          handlePlaceCard(gameState, triadIndex, position);
-          refreshUI();
+          runWithTriadAnimation(0, function() {
+            handlePlaceCard(gameState, triadIndex, position);
+          });
         }
         // 'cancel' — do nothing, player picks a different spot
       });
@@ -3843,8 +4008,9 @@ window._onCardClick = function(triadIndex, position) {
         { label: 'Choose Different Spot', value: 'cancel', style: 'secondary' }
       ]).then(function(choice) {
         if (choice === 'replace') {
-          handlePlaceCard(gameState, triadIndex, position);
-          refreshUI();
+          runWithTriadAnimation(0, function() {
+            handlePlaceCard(gameState, triadIndex, position);
+          });
         }
       });
       return;
@@ -3862,19 +4028,22 @@ window._onCardClick = function(triadIndex, position) {
             { label: '+' + existingPower.modifiers[1] + ' (positive)', value: 'positive', style: 'primary' },
             { label: existingPower.modifiers[0] + ' (negative)', value: 'negative', style: 'secondary' }
           ]).then(function(modChoice) {
-            handleCreatePowersetOnPower(gameState, triadIndex, position, modChoice === 'positive');
-            refreshUI();
+            runWithTriadAnimation(0, function() {
+              handleCreatePowersetOnPower(gameState, triadIndex, position, modChoice === 'positive');
+            });
           });
         } else {
-          handlePlaceCard(gameState, triadIndex, position);
-          refreshUI();
+          runWithTriadAnimation(0, function() {
+            handlePlaceCard(gameState, triadIndex, position);
+          });
         }
       });
       return;
     }
 
-    handlePlaceCard(gameState, triadIndex, position);
-    refreshUI();
+    runWithTriadAnimation(0, function() {
+      handlePlaceCard(gameState, triadIndex, position);
+    });
     return;
   }
 };
@@ -4127,10 +4296,12 @@ function aiStepDraw() {
 
 // Step 3: Place or discard the drawn card
 function aiStepPlace(action, drewFromDiscard, drawnDesc) {
-  // Capture triad count before action for banter detection
-  var aiTriadsBeforePlace = 0;
+  // Capture triad discard state before action for banter detection AND animation
   var aiHandPre = gameState.players[1].hand;
+  var triadsBefore = [];
+  var aiTriadsBeforePlace = 0;
   for (var bt0 = 0; bt0 < aiHandPre.triads.length; bt0++) {
+    triadsBefore.push(aiHandPre.triads[bt0].isDiscarded);
     if (aiHandPre.triads[bt0].isDiscarded) aiTriadsBeforePlace++;
   }
 
@@ -4195,10 +4366,37 @@ function aiStepPlace(action, drewFromDiscard, drawnDesc) {
     }
   }
 
-  refreshUI();
+  // Check for newly discarded triads — animate them before showing the final state
+  var newlyDiscardedTriads = [];
+  for (var nd = 0; nd < aiHand2.triads.length; nd++) {
+    if (!triadsBefore[nd] && aiHand2.triads[nd].isDiscarded) {
+      newlyDiscardedTriads.push(nd);
+    }
+  }
 
-  // Step 4: Check for AI KAPOW swaps, then clear and end
-  setTimeout(function() { aiStepCheckSwap(); }, AI_DELAY);
+  if (newlyDiscardedTriads.length > 0) {
+    // Temporarily undo isDiscarded so refreshUI renders the cards still visible
+    for (var u = 0; u < newlyDiscardedTriads.length; u++) {
+      aiHand2.triads[newlyDiscardedTriads[u]].isDiscarded = false;
+    }
+    // Add completion message to game message
+    gameState.message += ' Triad complete!';
+    refreshUI();
+    // Restore isDiscarded
+    for (var u2 = 0; u2 < newlyDiscardedTriads.length; u2++) {
+      aiHand2.triads[newlyDiscardedTriads[u2]].isDiscarded = true;
+    }
+    // Animate the triad cards disappearing, then do final refresh and continue
+    animateNewlyDiscardedTriads(triadsBefore, 1, function() {
+      refreshUI();
+      // Step 4: Check for AI KAPOW swaps, then clear and end
+      setTimeout(function() { aiStepCheckSwap(); }, AI_DELAY);
+    });
+  } else {
+    refreshUI();
+    // Step 4: Check for AI KAPOW swaps, then clear and end
+    setTimeout(function() { aiStepCheckSwap(); }, AI_DELAY);
+  }
 }
 
 // AI KAPOW swap: find beneficial swaps (triad completion, score improvement, or face-down on final turns)
@@ -4324,12 +4522,43 @@ function aiStepCheckSwap() {
     logAction(gameState, 1, 'Swaps KAPOW! from ' + fromLabel + ' to ' + toLabel);
     aiMoveExplanation += '\n<p class="explain-step"><span class="explain-label">Swap:</span> AI moved a KAPOW! card from ' + fromLabel + ' to ' + toLabel + '. KAPOW! cards are wild (worth 0\u201312) but count as 25 points if left unplayed. Moving them to better positions helps complete triads or reduce risk.</p>';
     gameState.aiHighlight = { type: 'place', triadIndex: swap.to.triadIndex, position: swap.to.position };
+
+    // Capture triad state before checking for completions
+    var swapTriadsBefore = [];
+    for (var stb = 0; stb < aiHand.triads.length; stb++) {
+      swapTriadsBefore.push(aiHand.triads[stb].isDiscarded);
+    }
     checkAndDiscardTriads(gameState, 1);
     logHandState(gameState, 1);
-    refreshUI();
 
-    // Check for more swaps after a delay
-    setTimeout(function() { aiStepCheckSwap(); }, AI_DELAY);
+    // Check for newly discarded triads from the swap
+    var swapNewlyDiscarded = [];
+    for (var snd = 0; snd < aiHand.triads.length; snd++) {
+      if (!swapTriadsBefore[snd] && aiHand.triads[snd].isDiscarded) {
+        swapNewlyDiscarded.push(snd);
+      }
+    }
+
+    if (swapNewlyDiscarded.length > 0) {
+      // Temporarily undo isDiscarded for animation
+      for (var su = 0; su < swapNewlyDiscarded.length; su++) {
+        aiHand.triads[swapNewlyDiscarded[su]].isDiscarded = false;
+      }
+      gameState.message += ' Triad complete!';
+      refreshUI();
+      for (var su2 = 0; su2 < swapNewlyDiscarded.length; su2++) {
+        aiHand.triads[swapNewlyDiscarded[su2]].isDiscarded = true;
+      }
+      animateNewlyDiscardedTriads(swapTriadsBefore, 1, function() {
+        refreshUI();
+        // Check for more swaps after a delay
+        setTimeout(function() { aiStepCheckSwap(); }, AI_DELAY);
+      });
+    } else {
+      refreshUI();
+      // Check for more swaps after a delay
+      setTimeout(function() { aiStepCheckSwap(); }, AI_DELAY);
+    }
   } else {
     // No beneficial swaps — end AI turn
     // Keep aiHighlight visible so player can see where AI placed; cleared on player's first action
