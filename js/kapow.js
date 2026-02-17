@@ -3668,6 +3668,7 @@ function refreshUI() {
   renderDiscardPile(gameState.discardPile, gameState.drawnCard, gameState.drawnFromDiscard);
   renderDrawPile(gameState);
   document.getElementById('draw-count').textContent = '(' + gameState.drawPile.length + ' cards)';
+  document.getElementById('discard-count').textContent = '(' + gameState.discardPile.length + ' cards)';
 
   // AI draw pile highlights
   var drawTopEl = document.getElementById('draw-top');
