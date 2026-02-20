@@ -2,8 +2,24 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>KAPOW! Card Game</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1b5e20">
+
+  <!-- iOS Web App -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="KAPOW!">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="KAPOW! Card Game">
+  <meta property="og:description" content="An original card game with a sophisticated AI opponent">
+  <meta property="og:type" content="website">
+
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -148,5 +164,11 @@
   </div>
 
   <script src="js/kapow.js"></script>
+  <script>
+    // Register service worker for offline/PWA support
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(function() {});
+    }
+  </script>
 </body>
 </html>

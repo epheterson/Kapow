@@ -6,6 +6,14 @@
 'use strict';
 
 // ========================================
+// UTILITIES
+// ========================================
+
+function escapeHTML(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ========================================
 // AI BANTER SYSTEM
 // ========================================
 
@@ -479,6 +487,7 @@ function revealAllCards(hand) {
 }
 
 function applyFirstOutPenalty(roundScores, firstOutIndex) {
+  if (firstOutIndex === null || firstOutIndex === undefined) return roundScores;
   if (roundScores[firstOutIndex] === 0) return roundScores;
   var scores = roundScores.slice();
   var firstOutScore = scores[firstOutIndex];
@@ -4155,7 +4164,7 @@ function showRoundEnd() {
   for (var i = 0; i < gameState.players.length; i++) {
     var player = gameState.players[i];
     var roundScore = player.roundScores[player.roundScores.length - 1];
-    html += '<tr><td style="padding: 4px 12px; font-weight: bold;">' + player.name + '</td>' +
+    html += '<tr><td style="padding: 4px 12px; font-weight: bold;">' + escapeHTML(player.name) + '</td>' +
       '<td style="padding: 4px 12px;">Round: ' + (roundScore >= 0 ? '+' : '') + roundScore + '</td>' +
       '<td style="padding: 4px 12px;">Total: ' + player.totalScore + '</td></tr>';
   }
@@ -4163,7 +4172,7 @@ function showRoundEnd() {
 
   if (gameState.firstOutPlayer !== null) {
     html += '<p style="margin-top: 12px; font-size: 14px; opacity: 0.8;">' +
-      gameState.players[gameState.firstOutPlayer].name + ' went out first.</p>';
+      escapeHTML(gameState.players[gameState.firstOutPlayer].name) + ' went out first.</p>';
   }
 
   scores.innerHTML = html;
@@ -4184,7 +4193,7 @@ function showGameOver() {
 
   var html = '<table style="margin: 0 auto; text-align: left;">';
   for (var i = 0; i < gameState.players.length; i++) {
-    html += '<tr><td style="padding: 4px 12px; font-weight: bold;">' + gameState.players[i].name + '</td>' +
+    html += '<tr><td style="padding: 4px 12px; font-weight: bold;">' + escapeHTML(gameState.players[i].name) + '</td>' +
       '<td style="padding: 4px 12px;">Final Score: ' + gameState.players[i].totalScore + '</td></tr>';
   }
   html += '</table>';
@@ -4193,7 +4202,7 @@ function showGameOver() {
   html += '<table style="margin: 0 auto; text-align: center; font-size: 14px;">';
   html += '<tr><th style="padding: 2px 8px;">Round</th>';
   for (var i = 0; i < gameState.players.length; i++) {
-    html += '<th style="padding: 2px 8px;">' + gameState.players[i].name + '</th>';
+    html += '<th style="padding: 2px 8px;">' + escapeHTML(gameState.players[i].name) + '</th>';
   }
   html += '</tr>';
   for (var r = 0; r < gameState.maxRounds; r++) {
@@ -4289,7 +4298,10 @@ function aiStepDraw() {
   }
 
   if (!gameState.drawnCard) {
+    // No card available from either pile — force end the AI turn to prevent deadlock
     gameState.aiHighlight = null;
+    endTurn(gameState);
+    aiTurnInProgress = false;
     refreshUI();
     return;
   }
