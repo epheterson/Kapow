@@ -1,6 +1,6 @@
 # KAPOW! Card Game
 
-An original card game with a sophisticated AI opponent, built entirely in vanilla HTML/CSS/JavaScript. No frameworks, no dependencies, no build tools — just 4,600 lines of hand-crafted game logic.
+A card game inspired by [Skyjo](https://www.magilano.com/skyjo/) but with more strategic depth — power card modifiers, KAPOW! wild cards, and triad completion mechanics that reward planning over luck. Built entirely in vanilla HTML/CSS/JavaScript with a surprisingly sophisticated AI opponent. No frameworks, no dependencies — just 4,600 lines of hand-crafted game logic.
 
 **[Play the original](https://cpheterson.github.io/Kapow/)** | **[Play this fork](https://epheterson.github.io/Kapow/)**
 
