@@ -3626,6 +3626,8 @@ function startGameWithName() {
 
   document.getElementById('name-screen').classList.add('hidden');
   document.getElementById('page-layout').classList.remove('hidden');
+  var helpToggle = document.getElementById('help-toggle');
+  if (helpToggle) helpToggle.classList.add('visible');
 
   // Update the player hand header
   document.getElementById('player-area-header').textContent = name + "'s Hand";

@@ -35,8 +35,12 @@
       <p>Enter your name to begin:</p>
       <input type="text" id="player-name-input" placeholder="Your name" maxlength="20" autofocus>
       <button id="btn-start-game" class="action-btn">Start Game</button>
+      <button id="btn-how-to-play" class="help-link" onclick="document.getElementById('help-modal').classList.remove('hidden')">How to Play</button>
     </div>
   </div>
+
+  <!-- Help button (always visible during game) -->
+  <button id="help-toggle" onclick="document.getElementById('help-modal').classList.remove('hidden')">?</button>
 
   <!-- Mobile sidebar toggle -->
   <button id="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('mobile-visible')">Score</button>
@@ -177,6 +181,140 @@
     <button id="btn-export-log" class="action-btn save-log-btn">Export Log</button>
   </div>
   </div>
+
+  <!-- Help / Rules Modal -->
+  <div id="help-modal" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+    <div class="help-modal-content">
+      <button class="help-close" onclick="document.getElementById('help-modal').classList.add('hidden')">&times;</button>
+      <h2>How to Play</h2>
+
+      <!-- Tab navigation -->
+      <div class="help-tabs">
+        <button class="help-tab active" onclick="showHelpTab('basics',this)">Basics</button>
+        <button class="help-tab" onclick="showHelpTab('cards',this)">Cards</button>
+        <button class="help-tab" onclick="showHelpTab('turns',this)">Turns</button>
+        <button class="help-tab" onclick="showHelpTab('scoring',this)">Scoring</button>
+        <button class="help-tab" onclick="showHelpTab('strategy',this)">Tips</button>
+      </div>
+
+      <!-- Tab: Basics -->
+      <div id="help-basics" class="help-panel active">
+        <h3>Goal</h3>
+        <p>Have the <strong>fewest points</strong> after 10 rounds. Cards in your hand count against you &mdash; get rid of them by completing triads.</p>
+
+        <h3>Setup</h3>
+        <p>Each player gets <strong>12 cards face-down</strong> arranged in 4 columns of 3 (called <em>triads</em>). The remaining cards form a draw pile, with one card face-up starting the discard pile.</p>
+
+        <h3>What's a Triad?</h3>
+        <p>Each column of 3 cards is a triad. Complete a triad and it gets <strong>discarded for 0 points</strong>. A triad is complete when it contains:</p>
+        <ul>
+          <li><strong>Three of a kind</strong> &mdash; same value in all 3 positions (e.g. 7, 7, 7)</li>
+          <li><strong>A run</strong> &mdash; three consecutive values (e.g. 5, 6, 7 or 10, 11, 12)</li>
+        </ul>
+
+        <div class="help-video">
+          <a href="https://youtu.be/xAY-B_t0T34" target="_blank" rel="noopener">Watch video tutorial &rarr;</a>
+        </div>
+      </div>
+
+      <!-- Tab: Cards -->
+      <div id="help-cards" class="help-panel">
+        <h3>The Deck (118 cards)</h3>
+
+        <div class="help-card-type">
+          <div class="help-card-badge help-badge-fixed">5</div>
+          <div>
+            <strong>Fixed Cards (96)</strong><br>
+            Values 0&ndash;12. Eight of each (except 1 and 2 which have four each). Simple &mdash; the number on the card is its value.
+          </div>
+        </div>
+
+        <div class="help-card-type">
+          <div class="help-card-badge help-badge-power">P</div>
+          <div>
+            <strong>Power Cards (16)</strong><br>
+            Have a face value (1 or 2) <em>plus</em> modifier values (&plusmn;1 or &plusmn;2). Play them alone for face value, or <strong>stack under another card</strong> to modify that position's value. Stacked cards form a <em>powerset</em> &mdash; they move as a unit.
+          </div>
+        </div>
+
+        <div class="help-card-type">
+          <div class="help-card-badge help-badge-kapow">K!</div>
+          <div>
+            <strong>KAPOW! Cards (6)</strong><br>
+            Wild cards (value 0&ndash;12). Worth <strong>+25 points</strong> until used in a triad. Once placed, you can <strong>swap their position</strong> with any other card until they're frozen in a completed triad or powerset.
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Turns -->
+      <div id="help-turns" class="help-panel">
+        <h3>First Turn</h3>
+        <p><strong>Reveal any 2 cards</strong> in your hand (click them). Then draw a card and play it.</p>
+
+        <h3>Each Turn After</h3>
+        <ol>
+          <li><strong>Draw</strong> &mdash; click the draw pile or discard pile to pick up a card</li>
+          <li><strong>Play it</strong> &mdash; either:
+            <ul>
+              <li><strong>Discard it</strong> &mdash; click the discard pile</li>
+              <li><strong>Replace a card</strong> &mdash; click any card in your hand (the old card goes to discard)</li>
+              <li><strong>Create a powerset</strong> &mdash; stack it on a face-up power card</li>
+            </ul>
+          </li>
+          <li>Any completed triads are <strong>automatically discarded</strong></li>
+          <li>You may <strong>swap a free KAPOW! card</strong> with another card in your hand</li>
+        </ol>
+
+        <h3>Going Out</h3>
+        <p>When all your cards are revealed or discarded, the round ends. Each other player gets <strong>one final turn</strong> (all hidden cards are revealed first).</p>
+      </div>
+
+      <!-- Tab: Scoring -->
+      <div id="help-scoring" class="help-panel">
+        <h3>Round Scoring</h3>
+        <ul>
+          <li><strong>Completed triads</strong> = 0 points (already discarded)</li>
+          <li><strong>Incomplete triads</strong> = sum of card values in each position</li>
+          <li><strong>Unused KAPOW!</strong> = +25 points each</li>
+          <li><strong>KAPOW! in a powerset</strong> = value of the powerset, not 25</li>
+          <li>Power cards in a powerset use their modifier values</li>
+        </ul>
+
+        <h3>Going-Out Penalty</h3>
+        <p>If you go out first but <strong>don't have the lowest score</strong>, your score for that round is <strong>doubled</strong>. Going out is risky &mdash; make sure you're actually winning!</p>
+
+        <h3>After 10 Rounds</h3>
+        <p>Lowest total score wins.</p>
+      </div>
+
+      <!-- Tab: Strategy -->
+      <div id="help-strategy" class="help-panel">
+        <h3>Quick Tips</h3>
+        <ul>
+          <li><strong>Complete high-value triads first</strong> &mdash; getting rid of 12s early is better than perfecting 3s</li>
+          <li><strong>Build triads with multiple outs</strong> &mdash; a triad with 9, 9, and 11 can be completed by drawing 9, 10, or a KAPOW!</li>
+          <li><strong>Power cards can make negative values</strong> &mdash; a -2 power under a 0 = -2 points. Keep those!</li>
+          <li><strong>Watch the discard pile</strong> &mdash; when you complete a triad, its top card becomes available to your opponent</li>
+          <li><strong>Don't go out too early</strong> &mdash; if the AI has a lower score, yours gets doubled</li>
+          <li><strong>KAPOW! cards are flexible</strong> &mdash; swap them around to where they're needed most before they get frozen</li>
+        </ul>
+
+        <h3>Use "Understand AI's Move"</h3>
+        <p>After the AI plays, click the <strong>Understand AI's Move</strong> button to see its reasoning. Great way to learn advanced strategy.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showHelpTab(tabName, btn) {
+      var panels = document.querySelectorAll('.help-panel');
+      var tabs = document.querySelectorAll('.help-tab');
+      for (var i = 0; i < panels.length; i++) panels[i].classList.remove('active');
+      for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
+      document.getElementById('help-' + tabName).classList.add('active');
+      btn.classList.add('active');
+    }
+  </script>
 
   <script src="js/kapow.js"></script>
   <script>
