@@ -3034,6 +3034,24 @@ function aiEvaluateDrawFromDiscard(gameState) {
     }
   }
 
+  // Before drawing from discard, check if drawing this card would FORCE going out
+  // with a bad score. This happens when the AI has only one face-down card left and
+  // any placement would leave the hand fully revealed. Drawing from the discard pile
+  // is especially dangerous because it removes the ability to discard (can't discard
+  // a card drawn from the discard pile). If placing this card would force going out
+  // and going out is inadvisable, prefer the draw pile instead.
+  var handEvalDraw = aiEvaluateHand(aiHand);
+  if (handEvalDraw.unrevealedCount === 1) {
+    // Only one face-down card — any placement reveals it and triggers going out.
+    // Simulate score: known revealed cards + drawn card value.
+    var drawnCardValue = discardTop.type === 'kapow' ? 25 : discardTop.faceValue;
+    var simulatedGoOutScore = handEvalDraw.knownScore + drawnCardValue;
+    var goOutCheck = aiShouldGoOutWithScore(gameState, simulatedGoOutScore);
+    if (!goOutCheck.shouldGoOut) {
+      return { shouldDraw: false, reason: 'drawing would force going out with bad score (' + simulatedGoOutScore + ' pts)' };
+    }
+  }
+
   // Draw if the best placement gives meaningful improvement (> threshold)
   if (bestPlacementScore >= 8) {
     return { shouldDraw: true, reason: 'strong placement available' };
