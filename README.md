@@ -161,7 +161,8 @@ Prioritized by impact-to-effort ratio:
 - [ ] **Undo button** — snapshot state before each action, restore on undo
 - [ ] **Achievement badges** — "Shutout" (0-point round), "Comeback Kid", "KAPOW Master"
 - [ ] **Consolidate codebases** — unify modular `js/*.js` files with `kapow.js`, add build step (esbuild/rollup for ~30KB gzipped)
-- [ ] **Multiplayer** — game state already supports N players
+- [ ] **Local multiplayer** — pass-and-play on one device, game state already supports N players
+- [ ] **Online multiplayer** — WebSocket or WebRTC for remote play
 
 ## Development
 
