@@ -268,9 +268,9 @@ function revealCard(hand, triadIndex, position) {
   if (posCards && posCards.length > 0) {
     posCards[0].isRevealed = true;
   }
-  // Track for flip animation
+  // Track for flip animation — include hand reference to avoid cross-hand animation
   if (gameState) {
-    gameState._justRevealed = { triadIndex: triadIndex, position: position };
+    gameState._justRevealed = { hand: hand, triadIndex: triadIndex, position: position };
   }
   return hand;
 }
@@ -1046,11 +1046,11 @@ function handlePlaceCard(state, triadIndex, position) {
   var vol = state.currentPlayer === 0 ? 1 : 0.5;
   if (result.hand.triads[triadIndex][position][0] && result.hand.triads[triadIndex][position][0].type === 'kapow') {
     KapowSounds.kapowHit(vol);
-    state._justPlacedKapow = { triadIndex: triadIndex, position: position };
+    state._justPlacedKapow = { hand: result.hand, triadIndex: triadIndex, position: position };
   } else {
     KapowSounds.cardPlace(vol);
   }
-  state._justPlaced = { triadIndex: triadIndex, position: position };
+  state._justPlaced = { hand: result.hand, triadIndex: triadIndex, position: position };
 
   state.drawnCard = null;
   state.drawnFromDiscard = false;
@@ -1082,7 +1082,7 @@ function handleAddPowerset(state, triadIndex, position, usePositiveModifier) {
   logAction(state, state.currentPlayer, 'Creates powerset: ' + powerDesc + ' as modifier (' + modSign + modValue + ') under card in Triad ' + (triadIndex + 1) + ' (' + position + ')');
 
   KapowSounds.cardPlace(state.currentPlayer === 0 ? 1 : 0.5);
-  state._justPlaced = { triadIndex: triadIndex, position: position };
+  state._justPlaced = { hand: state.players[state.currentPlayer].hand, triadIndex: triadIndex, position: position };
 
   state.drawnCard = null;
   state.drawnFromDiscard = false;
@@ -1117,7 +1117,7 @@ function handleCreatePowersetOnPower(state, triadIndex, position, usePositiveMod
   logAction(state, state.currentPlayer, 'Creates powerset: ' + drawnDesc + ' on top, Power ' + existingPower.faceValue + ' (' + modSign + modValue + ') as modifier in Triad ' + (triadIndex + 1) + ' (' + position + ')');
 
   KapowSounds.cardPlace(state.currentPlayer === 0 ? 1 : 0.5);
-  state._justPlaced = { triadIndex: triadIndex, position: position };
+  state._justPlaced = { hand: state.players[state.currentPlayer].hand, triadIndex: triadIndex, position: position };
 
   state.drawnCard = null;
   state.drawnFromDiscard = false;
@@ -3559,17 +3559,17 @@ function renderHand(hand, containerId, isOpponent, clickablePositions, onClickAt
         var faceDown = isOpponent && !card.isRevealed;
         var hasPowerset = triad[pos].length > 1 && card.isRevealed;
 
-        // Determine animation class from state flags
+        // Determine animation class from state flags (only for the correct hand)
         var animClass = '';
         if (gameState) {
           var jr = gameState._justRevealed;
           var jp = gameState._justPlaced;
           var jpk = gameState._justPlacedKapow;
-          if (jr && jr.triadIndex === t && jr.position === pos) {
+          if (jr && jr.hand === hand && jr.triadIndex === t && jr.position === pos) {
             animClass = 'card-flip-in';
-          } else if (jpk && jpk.triadIndex === t && jpk.position === pos) {
+          } else if (jpk && jpk.hand === hand && jpk.triadIndex === t && jpk.position === pos) {
             animClass = 'card-slide-in card-kapow-placed';
-          } else if (jp && jp.triadIndex === t && jp.position === pos) {
+          } else if (jp && jp.hand === hand && jp.triadIndex === t && jp.position === pos) {
             animClass = 'card-slide-in';
           }
         }
