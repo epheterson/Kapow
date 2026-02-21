@@ -1101,11 +1101,13 @@ body::before {
     align-items: center;
   }
 
+  /* Grid locks draw pile and discard pile in place — hands-column gets
+     all remaining space in the middle. Piles never shift regardless of
+     how wide the center strip message is. */
   #play-area {
-    display: flex;
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
     align-items: center;
-    justify-content: center;
     gap: 20px;
     width: 100%;
   }
@@ -1115,6 +1117,7 @@ body::before {
     flex-direction: column;
     align-items: center;
     gap: 6px;
+    min-width: 0;
   }
 
   #sidebar {
@@ -1128,16 +1131,22 @@ body::before {
     display: none !important;
   }
 
-  /* Center strip: message on its own row, all buttons together below */
+  /* Center strip: message on its own row, buttons together below.
+     fit-content + margin:auto centers it within the 1fr column
+     without letting it push the piles around. */
   #center-strip {
     flex-wrap: wrap;
     gap: 8px;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto;
   }
 
   #center-strip #game-message {
     flex: 0 0 100%;
-    max-width: none;
+    max-width: 420px;
     text-align: center;
+    white-space: normal;
   }
 }
 
@@ -2173,7 +2182,8 @@ body:has(#page-layout:not(.hidden)) #help-toggle {
 #revision-footer {
   position: fixed;
   bottom: 10px;
-  right: 10px;
+  left: 50%;
+  transform: translateX(-50%);
   font-size: 11px;
   color: rgba(255, 255, 255, 0.5);
   font-weight: 500;
