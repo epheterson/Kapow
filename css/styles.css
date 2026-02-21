@@ -1087,11 +1087,11 @@ body::before {
     font-weight: 600;
   }
 
-  /* CSS grid layout for mobile — fill available height */
+  /* CSS grid layout for mobile — distribute space between sections */
   #play-area {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto auto 1fr;
+    grid-template-rows: auto auto auto auto;
     grid-template-areas:
       "ai       ai"
       "draw     discard"
@@ -1100,6 +1100,7 @@ body::before {
     gap: 2px;
     justify-items: center;
     align-items: start;
+    align-content: space-between;
     flex: 1;
     min-height: 0;
   }
@@ -1112,7 +1113,7 @@ body::before {
   #left-column { grid-area: draw; justify-self: end; }
   #discard-pile { grid-area: discard; justify-self: start; }
   #center-strip { grid-area: msg; }
-  #player-area { grid-area: player; align-self: end; }
+  #player-area { grid-area: player; }
 
   /* AI hand: mini cards — opponent cards are mostly face-down, save vertical space */
   #ai-area h2 {
