@@ -3612,8 +3612,12 @@ function renderHand(hand, containerId, isOpponent, clickablePositions, onClickAt
         else if (highlight.type === 'reveal') hlClass = ' ai-reveal-highlight';
         else if (highlight.type === 'kapow-selected') hlClass = ' kapow-selected-highlight';
       }
-      html += '<div class="position-slot' + hlClass + '">';
+      // Show "TOP" label on first triad's top-position row to orient players
+      var isTopRow = (pos === 'top' && t === 0);
+      var topClass = isTopRow ? ' top-row' : '';
+      html += '<div class="position-slot' + hlClass + topClass + '">';
       html += '<span class="pos-label">' + posLabels[pos] + '</span>';
+      if (isTopRow) html += '<span class="top-row-label">TOP</span>';
 
       if (triad[pos].length > 0) {
         var isClickable = false;
@@ -4262,6 +4266,7 @@ function refreshUI() {
 
   // AI Commentary
   var commentaryEl = document.getElementById('ai-commentary');
+  var mobileBanter = document.getElementById('mobile-banter');
   if (commentaryEl) {
     if (gameState.aiCommentary) {
       commentaryEl.textContent = gameState.aiCommentary;
@@ -4269,6 +4274,15 @@ function refreshUI() {
     } else {
       commentaryEl.textContent = '';
       commentaryEl.classList.remove('visible');
+    }
+  }
+  if (mobileBanter) {
+    if (gameState.aiCommentary) {
+      mobileBanter.textContent = '\u201C' + gameState.aiCommentary + '\u201D';
+      mobileBanter.classList.add('visible');
+    } else {
+      mobileBanter.textContent = '';
+      mobileBanter.classList.remove('visible');
     }
   }
 
