@@ -660,6 +660,12 @@ function exportLog(silent) {
 }
 
 function startRound(state) {
+  // Tutorial: use stacked deck for first-ever game's round 1
+  if (state.round === 1 && shouldStartTutorial()) {
+    startTutorialRound(state);
+    return state;
+  }
+
   var deck = shuffle(createDeck());
   var playerCount = state.players.length;
   var result = deal(deck, playerCount, 12);
@@ -724,8 +730,18 @@ function handleFirstTurnReveal(state, triadIndex, position) {
     state.needsFirstReveal[state.currentPlayer] = false;
     state.message = playerTurnMessage(player.name) + '. Draw a card.';
     logHandState(state, state.currentPlayer);
+    // Tutorial coaching
+    if (state.currentPlayer === 0) {
+      var tutMsg = getTutorialMessage(state, 'reveal_done');
+      if (tutMsg) state.message = tutMsg;
+    }
   } else {
     state.message = 'Reveal 1 more card.';
+    // Tutorial coaching
+    if (state.currentPlayer === 0) {
+      var tutMsg1 = getTutorialMessage(state, 'reveal_1', { card: revealedCard });
+      if (tutMsg1) state.message = tutMsg1;
+    }
   }
 
   return state;
@@ -759,6 +775,11 @@ function handleDrawFromDeck(state) {
     state.message = 'Drew ' + cardDescription(result.card) + '. Place or discard.';
     logAction(state, state.currentPlayer, 'Draws ' + cardDescription(result.card) + ' from draw pile');
     KapowSounds.drawCard(state.currentPlayer === 0 ? 1 : 0.5);
+    // Tutorial coaching
+    if (state.currentPlayer === 0) {
+      var tutMsg = getTutorialMessage(state, 'draw');
+      if (tutMsg) state.message = tutMsg;
+    }
   }
   return state;
 }
@@ -783,6 +804,11 @@ function handleDrawFromDiscard(state) {
       state.message = 'Took ' + desc + '. Place or use as modifier.';
     } else {
       state.message = 'Took ' + desc + '. Place it in your hand.';
+    }
+    // Tutorial coaching for discard draws
+    if (state.currentPlayer === 0) {
+      var tutMsg = getTutorialMessage(state, 'draw');
+      if (tutMsg) state.message = tutMsg;
     }
   }
   return state;
@@ -895,6 +921,12 @@ function advanceToNextPlayer(state) {
     state.message = 'Reveal 2 cards to start your turn.';
   } else {
     state.message = playerTurnMessage(state.players[state.currentPlayer].name) + '. Draw a card.';
+  }
+
+  // Auto-complete tutorial after enough turns
+  if (isTutorial() && state.turnNumber >= 7) {
+    completeTutorial();
+    state.message = playerTurnMessage(state.players[state.currentPlayer].name) + ". You're getting the hang of it! Play on.";
   }
 }
 
@@ -1054,7 +1086,34 @@ function handlePlaceCard(state, triadIndex, position) {
 
   state.drawnCard = null;
   state.drawnFromDiscard = false;
+
+  // Track triad state before checking for completions (for tutorial)
+  var triadsBefore = [];
+  if (isTutorial() && state.currentPlayer === 0) {
+    for (var tb = 0; tb < player.hand.triads.length; tb++) {
+      triadsBefore.push(player.hand.triads[tb].isDiscarded);
+    }
+  }
+
   checkAndDiscardTriads(state, state.currentPlayer);
+
+  // Tutorial coaching after placement
+  if (isTutorial() && state.currentPlayer === 0) {
+    var newTriadCompleted = false;
+    for (var tc = 0; tc < player.hand.triads.length; tc++) {
+      if (!triadsBefore[tc] && player.hand.triads[tc].isDiscarded) { newTriadCompleted = true; break; }
+    }
+    if (newTriadCompleted) {
+      var tutMsg = getTutorialMessage(state, 'triad_complete');
+      if (tutMsg) state.message = tutMsg;
+    } else if (!result.hand.triads[triadIndex].isDiscarded &&
+               result.hand.triads[triadIndex][position][0] &&
+               result.hand.triads[triadIndex][position][0].type === 'kapow') {
+      var tutMsg2 = getTutorialMessage(state, 'kapow_placed');
+      if (tutMsg2) state.message = tutMsg2;
+    }
+  }
+
   logHandState(state, state.currentPlayer);
   checkForKapowSwapOrEndTurn(state);
   return state;
@@ -1087,6 +1146,13 @@ function handleAddPowerset(state, triadIndex, position, usePositiveModifier) {
   state.drawnCard = null;
   state.drawnFromDiscard = false;
   checkAndDiscardTriads(state, state.currentPlayer);
+
+  // Tutorial coaching for power card stacking
+  if (isTutorial() && state.currentPlayer === 0) {
+    var tutMsg = getTutorialMessage(state, 'power_stacked');
+    if (tutMsg) state.message = tutMsg;
+  }
+
   logHandState(state, state.currentPlayer);
   checkForKapowSwapOrEndTurn(state);
   return state;
@@ -3696,6 +3762,187 @@ function renderDrawPile(state) {
 }
 
 // ========================================
+// TUTORIAL SYSTEM
+// ========================================
+
+var tutorialActive = false;
+var tutorialSeen = { triad: false, power: false, kapow: false };
+
+function isTutorial() { return tutorialActive; }
+
+function shouldStartTutorial() {
+  try { return !localStorage.getItem('kapow-tutorial-done'); }
+  catch(e) { return false; }
+}
+
+function completeTutorial() {
+  tutorialActive = false;
+  try { localStorage.setItem('kapow-tutorial-done', '1'); } catch(e) {}
+}
+
+function buildTutorialDeck() {
+  // Stacked deck that guarantees encountering all 3 key mechanics:
+  // Turn 1: triad completion (set of 7s)
+  // Turn 2: power card (stacking/modifiers)
+  // Turn 3: KAPOW card (wild + 25pt risk)
+
+  nextCardId = 0;
+
+  // Player hand: Triad 0 has two 7s (third 7 on draw pile)
+  var playerCards = [
+    createCard('fixed', 7), createCard('fixed', 7), createCard('fixed', 10),  // Triad 0: 7,7,10
+    createCard('fixed', 5), createCard('fixed', 6), createCard('fixed', 12),  // Triad 1: 5,6,12
+    createCard('fixed', 9), createCard('fixed', 9), createCard('fixed', 3),   // Triad 2: 9,9,3
+    createCard('fixed', 4), createCard('fixed', 8), createCard('fixed', 11)   // Triad 3: 4,8,11
+  ];
+
+  // AI hand: reasonable cards
+  var aiCards = [
+    createCard('fixed', 3), createCard('fixed', 8), createCard('fixed', 6),
+    createCard('fixed', 10), createCard('fixed', 5), createCard('fixed', 2),
+    createCard('fixed', 7), createCard('fixed', 11), createCard('fixed', 4),
+    createCard('fixed', 1), createCard('fixed', 9), createCard('fixed', 0)
+  ];
+
+  // First discard card (visible)
+  var firstDiscard = createCard('fixed', 2);
+
+  // Draw pile — last element drawn first via .pop()
+  // Fill bottom with random cards for the rest of the game
+  var drawPile = [];
+  for (var i = 0; i < 50; i++) {
+    drawPile.push(createCard('fixed', Math.floor(Math.random() * 13)));
+  }
+  // Then place stacked cards (drawn in reverse order):
+  drawPile.push(createCard('kapow', 0));               // Player turn 3 draw (5th pop)
+  drawPile.push(createCard('fixed', 6));                // AI turn 2 draw (4th pop)
+  drawPile.push(createCard('power', 2, [-2, 2]));       // Player turn 2 draw (3rd pop)
+  drawPile.push(createCard('fixed', 3));                // AI turn 1 draw (2nd pop)
+  drawPile.push(createCard('fixed', 7));                // Player turn 1 draw (1st pop)
+
+  return { playerCards: playerCards, aiCards: aiCards, drawPile: drawPile, firstDiscard: firstDiscard };
+}
+
+function startTutorialRound(state) {
+  var td = buildTutorialDeck();
+  state.players[0].hand = initializeHand(td.playerCards);
+  state.players[1].hand = initializeHand(td.aiCards);
+
+  td.firstDiscard.isRevealed = true;
+  state.discardPile = [td.firstDiscard];
+  state.drawPile = td.drawPile;
+
+  state.drawnCard = null;
+  state.drawnFromDiscard = false;
+  state.awaitingKapowSwap = false;
+  state.selectedKapow = null;
+  state.firstOutPlayer = null;
+  state.finalTurnsRemaining = 0;
+  state.phase = 'playing';
+  state.firstTurnReveals = 0;
+  state.needsFirstReveal = [true, true];
+  state.currentPlayer = 0; // Player always goes first in tutorial
+  state.turnNumber = 1;
+  state.previousFirstOut = null;
+
+  tutorialActive = true;
+  tutorialSeen = { triad: false, power: false, kapow: false };
+  state.message = "Welcome to KAPOW! Tap your first 2 cards to peek at what you've got.";
+
+  logSystem(state, '=== Round 1 starts (Tutorial) ===');
+  logSystem(state, 'First player: ' + state.players[0].name);
+  logSystem(state, 'Discard pile starts with: ' + cardDescription(state.discardPile[0]));
+}
+
+// Called after player actions to inject coaching messages
+function getTutorialMessage(state, event, extra) {
+  if (!tutorialActive) return null;
+
+  var hand = state.players[0].hand;
+
+  if (event === 'reveal_1') {
+    // After first reveal
+    var card = extra.card;
+    return 'A ' + card.faceValue + '! Reveal one more card.';
+  }
+
+  if (event === 'reveal_done') {
+    // After both reveals — check what they can see
+    var sevenCount = 0;
+    for (var t = 0; t < hand.triads.length; t++) {
+      var triad = hand.triads[t];
+      var positions = ['top', 'middle', 'bottom'];
+      for (var p = 0; p < positions.length; p++) {
+        var c = triad[positions[p]][0];
+        if (c.isRevealed && c.faceValue === 7) sevenCount++;
+      }
+    }
+    if (sevenCount >= 2) {
+      return "Two 7s! If you get one more in that column, the whole triad vanishes for 0 points. Draw a card!";
+    }
+    return "Cards revealed! Now draw a card — tap the deck on the left.";
+  }
+
+  if (event === 'draw') {
+    var drawn = state.drawnCard;
+    if (drawn.type === 'kapow' && !tutorialSeen.kapow) {
+      tutorialSeen.kapow = true;
+      return "KAPOW! The wild card — it can be ANY value 0\u201312. Place it where it\u2019ll help build a triad. But careful: unused KAPOW costs 25 points!";
+    }
+    if (drawn.type === 'power' && !tutorialSeen.power) {
+      tutorialSeen.power = true;
+      var modStr = drawn.modifiers[0] + '/' + (drawn.modifiers[1] > 0 ? '+' : '') + drawn.modifiers[1];
+      return "\u26A1 Power Card! Face value " + drawn.faceValue + ", modifiers " + modStr + ". Stack it under a revealed card to change its value, or play it standalone.";
+    }
+    if (drawn.type === 'fixed' && drawn.faceValue === 7) {
+      // Check if they have two 7s visible in a triad
+      for (var t = 0; t < hand.triads.length; t++) {
+        var tr = hand.triads[t];
+        if (tr.isDiscarded) continue;
+        var sevens = 0; var openPos = null;
+        var positions = ['top', 'middle', 'bottom'];
+        for (var p = 0; p < positions.length; p++) {
+          var c = tr[positions[p]][0];
+          if (c.isRevealed && c.faceValue === 7) sevens++;
+          else if (!c.isRevealed || c.faceValue !== 7) openPos = positions[p];
+        }
+        if (sevens >= 2 && openPos) {
+          return "A 7! Place it in column " + (t + 1) + " (" + openPos + ") to complete a set of three 7s!";
+        }
+      }
+      return "A low card! Place it somewhere to reduce your score.";
+    }
+    return null; // Use default message
+  }
+
+  if (event === 'triad_complete' && !tutorialSeen.triad) {
+    tutorialSeen.triad = true;
+    return "Three of a kind \u2014 triad complete! That whole column scores 0. That's the goal!";
+  }
+
+  if (event === 'power_stacked' && !tutorialSeen.power) {
+    tutorialSeen.power = true;
+    return "Stacked! The modifier changes that position\u2019s effective value. Power cards are the key to creative triads.";
+  }
+
+  if (event === 'kapow_placed') {
+    return "KAPOW placed! You can swap it around later until it\u2019s locked in a completed triad. Keep building!";
+  }
+
+  if (event === 'power_placed_standalone') {
+    return "Placed as a standalone " + (extra ? extra.faceValue : '') + ". Pro tip: stacking power cards as modifiers is where they really shine!";
+  }
+
+  // Check if all mechanics seen — end tutorial
+  if (tutorialSeen.triad && tutorialSeen.power && tutorialSeen.kapow) {
+    completeTutorial();
+    return "Sets, Power Cards, KAPOW \u2014 you\u2019ve seen it all! Runs work too (e.g. 5-6-7). Now play for real. Good luck!";
+  }
+
+  return null;
+}
+
+// ========================================
 // MAIN GAME CONTROLLER
 // ========================================
 
@@ -3956,6 +4203,12 @@ function refreshUI() {
     gameMsgEl.classList.add('swap-phase-message');
   } else {
     gameMsgEl.classList.remove('swap-phase-message');
+  }
+  // Tutorial coaching visual style
+  if (isTutorial() && isHumanTurn) {
+    gameMsgEl.classList.add('tutorial-message');
+  } else {
+    gameMsgEl.classList.remove('tutorial-message');
   }
 
   // Turn counter
