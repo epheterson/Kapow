@@ -2,6 +2,14 @@
 
 ## Version History
 
+### 02-21-2026 v6
+**Fix desktop vertical spacing: remove artificial spreading between hands and center strip.**
+- Card formula overhead increased 165px → 280px to account for center strip + headers
+- Removed fixed height from hands-column — content now stacks naturally
+- Removed `flex: 1` from center-strip — no longer expands to fill empty space
+- Added `padding-bottom: 32px` to hands-column to clear the fixed revision footer
+- Cards now top out at ~103px on 900px viewports (still reach 130px at ≥1060px)
+
 ### 02-21-2026 v5
 **Fix desktop center strip button layout: each element on its own row.**
 - Message, action buttons (Hint + End Turn), and Understand AI's Move each occupy a full-width row
@@ -96,4 +104,4 @@ When making changes that warrant a version bump:
 
 ---
 
-## Latest Version: 02-21-2026 v5
+## Latest Version: 02-21-2026 v6

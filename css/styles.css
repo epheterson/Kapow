@@ -1078,11 +1078,12 @@ body::before {
    any cascade issues. Mobile overrides below.
    ============================================ */
 @media (min-width: 769px) {
-  /* Cards scale to viewport height so both hands always fit without scrolling.
-     6 card rows + ~165px of headers/strip/gaps/padding = full viewport.
-     Clamped: min 68px (very small screens), max 130px (large monitors). */
+  /* Cards scale to viewport height so both hands + center strip all fit without scrolling.
+     Budget breakdown: hand headers ×2 (~48px each), center strip (~130px),
+     column gaps + padding (~24px), page padding (20px) = ~280px total overhead.
+     Clamped: min 68px, max 130px (achieved on viewports ≥1060px). */
   :root {
-    --card-height: clamp(68px, calc((100vh - 165px) / 6), 130px);
+    --card-height: clamp(68px, calc((100vh - 280px) / 6), 130px);
     --card-width: calc(var(--card-height) * 0.714);
   }
 
@@ -1116,12 +1117,11 @@ body::before {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 12px;
     min-width: 0;
-    /* Fixed height anchors both hands at stable vertical positions.
-       Nothing in this column can shift the layout when text changes. */
-    height: calc(100vh - 20px);
-    justify-content: flex-start;
+    /* Natural height: content stacks tightly, no forced spreading.
+       padding-bottom clears the fixed revision footer. */
+    padding-bottom: 32px;
   }
 
   /* Card sections never shrink — their height is always 3 card rows */
@@ -1141,13 +1141,11 @@ body::before {
     display: none !important;
   }
 
-  /* Center strip: flex:1 absorbs all remaining space between the two hands.
-     Its HEIGHT is fixed by the hands-column — only the content inside floats.
-     align-content:center keeps message+buttons vertically centered within it. */
+  /* Center strip: natural height — no growth, no spreading. Content stacks
+     tightly in 3 rows (message / action buttons / understand button). */
   #center-strip {
-    flex: 1;
+    flex-shrink: 0;
     flex-wrap: wrap;
-    align-content: center;
     justify-content: center;
     gap: 8px;
     width: auto;
