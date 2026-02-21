@@ -23,7 +23,7 @@ Saw this and had to fork it. Cool to see what you built — here's what stands o
 **Design overhaul:**
 - **Comic book aesthetic** — Bangers + DM Sans typography, felt table texture with noise pattern and vignette, richer card designs with layered shadows
 - **Mobile-first responsive layout** — CSS grid restructure, viewport-relative card sizing (`svh` units), `position: fixed` viewport lock for iOS Safari, rubber-band scroll prevention
-- **AI mini cards** — opponent cards shrunk on mobile since they're mostly face-down, saves vertical space
+- **Same-size cards for both hands** — AI and player cards use identical sizing, 3-column center layout with draw/controls/discard
 - **Glassmorphic UI chrome** — score bar, sidebar overlay, buttons all use backdrop-filter blur
 
 **Rules / Help system:**
@@ -37,13 +37,17 @@ Saw this and had to fork it. Cool to see what you built — here's what stands o
 - **AI deadlock on empty piles** — if both draw and discard piles ran out, the game silently froze. Now gracefully ends the turn.
 - **Scoring null guard** — `applyFirstOutPenalty` was called with `null` when nobody went out.
 
+**Game feel (v0.3.x):**
+- **Sound effects** — Web Audio API synthesized sounds (card flip, draw, place, triad chime, KAPOW hit, round/game end). Mute toggle persists via localStorage.
+- **Card animations** — CSS flip on reveal, slide-in on placement, KAPOW red glow burst, screen shake on triad completion
+- **Hint button** — suggests the best move when you're stuck (free for now)
+- **"Understand AI's Move" on mobile** — full-featured on all screen sizes
+- **Lightbulb takeaway tips** — contextual insights in the AI explanation modal
+
 **Infrastructure:**
 - **PWA / iOS web app** — manifest.json, service worker, Apple meta tags, app icons. "Add to Home Screen" works as a standalone app.
 - **iOS Safari viewport handling** — `dvh`/`svh` units, `position: fixed` viewport lock, `overscroll-behavior: none`, touch event scroll prevention
-
-### What I want to add next
-
-Thinking about a **hint button** (that costs points) and **confetti/particles** for triad completion.
+- **Network-first service worker** — always fetches fresh assets when online, offline fallback from cache
 
 ### A note on the modular files
 
@@ -133,16 +137,18 @@ Prioritized by impact-to-effort ratio:
 
 ### Up next
 
-- [ ] **Hint button** — show suggested move, but costs points (2-3 point penalty per hint)
 - [ ] **Confetti on triad completion** — canvas particle burst
+- [ ] **Hint penalty** — hints currently free, add 2-3 point cost per use
 
 ### Polish
 
-- [x] **Sound effects** — card draw, place, flip, triad completion, KAPOW moment, round end (Web Audio API, v0.3.0)
+- [x] **Sound effects** — Web Audio API synthesized sounds (v0.3.0)
 - [x] **Card flip animation** — CSS 3D rotateY for reveals (v0.3.0)
 - [x] **Card slide-in animation** — slide-in on placement (v0.3.0)
 - [x] **Screen shake on triad completion** — CSS keyframes (v0.3.0)
 - [x] **KAPOW glow effect** — red glow burst on KAPOW placement (v0.3.0)
+- [x] **Hint button** — AI-powered move suggestions (v0.3.0)
+- [x] **Lightbulb takeaway tips** — contextual insights in AI explanation (v0.3.0)
 - [ ] **AI banter as speech bubbles** — move from sidebar to overlay near AI hand
 - [ ] **AI speed toggle** — `AI_DELAY` is hardcoded at 1500ms, add Normal/Fast/Instant
 - [ ] **Score count-up animation** — animate numbers at round end
@@ -176,7 +182,8 @@ Kapow/
 ├── css/
 │   └── styles.css          # All styles
 ├── js/
-│   ├── kapow.js            # Production bundle (4,606 lines)
+│   ├── kapow.js            # Production bundle (~4,800 lines)
+│   ├── sound.js            # Web Audio API synthesized sounds
 │   ├── ai.js               # AI heuristics (modular, NOT loaded)
 │   ├── deck.js             # Card/deck creation (modular)
 │   ├── gameState.js        # State machine (modular)
