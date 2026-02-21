@@ -2913,14 +2913,18 @@ function aiScorePlacement(hand, card, triadIndex, position) {
   // to the discard pile — available to the opponent. Check if giving them that card is
   // dangerous. This is especially critical for KAPOW! cards (universal wild) and cards
   // that complete opponent triads. Only applies when replacing a revealed card (not face-down).
+  // The penalty must be strong enough to override other bonuses and prevent discarding
+  // dangerous cards. E.g., replacing a 9 in [fd,8,7] would give opponent their completion
+  // value, so the penalty must exceed the raw score delta (9-3=6 points).
   if (gameState && !isUnrevealed && posCards.length > 0 && posCards[0].isRevealed) {
     var replacedCard = posCards[0];
     var replacedSafety = aiEvaluateDiscardSafety(replacedCard, gameState);
-    // Scale: safety 50 = neutral (no penalty), lower = more dangerous
-    // Safety 15 (KAPOW) → penalty of -(50-15)*0.4 = -14
-    // Safety 0 (KAPOW + opponent needs) → penalty of -20
+    // Scaled penalty: (50 - safety) * 1.0 (instead of 0.4 for much stronger deterrent)
+    // Safety 42 (card that completes opponent triad) → penalty of -8
+    // Safety 15 (KAPOW) → penalty of -35
+    // Safety 0 (KAPOW + opponent needs) → penalty of -50
     if (replacedSafety < 50) {
-      score -= Math.round((50 - replacedSafety) * 0.4);
+      score -= Math.round((50 - replacedSafety) * 1.0);
     }
   }
 
