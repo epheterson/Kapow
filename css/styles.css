@@ -2163,6 +2163,13 @@ body:has(#page-layout:not(.hidden)) #help-toggle {
   font-weight: 500;
   letter-spacing: 0.5px;
   pointer-events: none;
+  display: none; /* hidden on mobile — version shown in top bar instead */
+}
+
+@media (min-width: 769px) {
+  #revision-footer {
+    display: block;
+  }
 }
 
 #revision-text {
