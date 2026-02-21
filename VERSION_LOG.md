@@ -2,6 +2,13 @@
 
 ## Version History
 
+### 02-20-2026 v2
+**Strengthened discard safety penalty for opponent-completion cards.**
+- Increased scaling factor for replaced-card discard penalty from 0.4 to 1.0
+- Penalty now directly proportional to danger level (stronger deterrent)
+- Prevents AI from discarding cards that would help opponent complete triads
+- Example: replacing 9 with 3 now scores -2 instead of +3 when 9 completes opponent's triad
+
 ### 02-20-2026 v1
 **Initial revision with software revision footer added.**
 - Added revision footer to lower right corner of page
@@ -32,4 +39,4 @@ When making changes that warrant a version bump:
 
 ---
 
-## Latest Version: 02-20-2026 v1
+## Latest Version: 02-20-2026 v2
