@@ -1492,58 +1492,46 @@ function buildAiExplanation(gameState, drawnCard, drawChoice, action) {
 }
 
 function generateTakeawayTip(state, drawnCard, drawChoice, action, aiTriadsCompleted) {
-  var tips = [];
-  var playerHand = state.players[0].hand;
-  var playerEval = aiEvaluateHand(playerHand);
+  // Only show tips directly related to what the AI just did — no generic advice.
 
-  // Tip based on what AI drew
+  // Tip based on what AI drew from discard
   if (drawChoice === 'discard') {
-    tips.push('The AI grabbed from the discard pile — it saw exactly what it needed. Watch what you discard: if it completes an obvious pattern, the AI will pounce.');
+    return 'The AI grabbed from the discard pile — it saw exactly what it needed. Watch what you discard: if it completes an obvious pattern, the AI will pounce.';
   }
 
   // Tip based on AI completing a triad
   if (action && action.type === 'replace') {
     var aiTriad = state.players[1].hand.triads[action.triadIndex];
     if (aiTriad && aiTriad.isDiscarded) {
-      tips.push('AI just completed a triad for 0 points. Focus on building your own triads — even partial progress (two matching cards) puts you one draw away from clearing a column.');
+      return 'AI just completed a triad for 0 points. Focus on building your own triads — even partial progress (two matching cards) puts you one draw away from clearing a column.';
     }
   }
 
-  // Tip if player has high unrevealed count
-  if (playerEval.unrevealedCount >= 6) {
-    tips.push('You still have ' + playerEval.unrevealedCount + ' face-down cards. Revealing cards gives you information to plan triads — consider replacing unknowns with low cards even if they don\'t complete anything yet.');
-  }
-
-  // Tip if AI discarded — player might benefit from discard pile
+  // Tip if AI discarded a low card — player might want it
   if (action && action.type === 'discard' && drawnCard) {
     var discardVal = drawnCard.type === 'fixed' ? drawnCard.faceValue : -1;
     if (discardVal >= 0 && discardVal <= 4) {
-      tips.push('AI just discarded a low card (' + discardVal + '). Low cards in the discard pile can be valuable — grab them if they fit your triads.');
+      return 'AI just discarded a low card (' + discardVal + '). Low cards in the discard pile can be valuable — grab them if they fit your triads.';
     }
   }
 
-  // Tip if AI is ahead on triads
-  if (aiTriadsCompleted >= 2 && playerEval.unrevealedCount > 2) {
-    tips.push('The AI has cleared ' + aiTriadsCompleted + ' triads already. Prioritize completing at least one triad soon — those 0-point columns are how you stay competitive.');
+  // Tip if AI is pulling ahead on triads
+  if (aiTriadsCompleted >= 2) {
+    return 'The AI has cleared ' + aiTriadsCompleted + ' triads already. Prioritize completing at least one triad soon — those 0-point columns are how you stay competitive.';
   }
 
-  // Tip about KAPOW cards
+  // Tip about KAPOW cards the AI just played
   if (drawnCard && drawnCard.type === 'kapow') {
-    tips.push('KAPOW! cards are wild but cost 25 points if unused. The AI placed one strategically — if you draw one, get it into a near-complete triad quickly.');
+    return 'KAPOW! cards are wild but cost 25 points if unused. The AI placed one strategically — if you draw one, get it into a near-complete triad quickly.';
   }
 
-  // Tip about power cards as modifiers
+  // Tip about power cards the AI just stacked
   if (action && (action.type === 'powerset-on-power' || action.type === 'modifier-on-card')) {
-    tips.push('Power card modifiers can create negative values — a -2 modifier on a 0 card = -2 points. Look for stacking opportunities in your own hand.');
+    return 'Power card modifiers can create negative values — a -2 modifier on a 0 card = -2 points. Look for stacking opportunities in your own hand.';
   }
 
-  // Tip if player score is significantly higher
-  if (playerEval.knownScore > 30 && state.turnNumber > 4) {
-    tips.push('Your visible score is ' + playerEval.knownScore + ' points. Try to complete a high-value triad to shed points fast — targeting columns with 8+ cards gives the biggest payoff.');
-  }
-
-  // Pick one tip (prefer more specific ones — later tips are more contextual)
-  return tips.length > 0 ? tips[tips.length - 1] : null;
+  // No tip if nothing noteworthy happened
+  return null;
 }
 
 function aiDecideDraw(gameState) {
