@@ -106,8 +106,7 @@ Kapow/
 ├── index.html              # Entry point
 ├── manifest.json           # PWA manifest
 ├── sw.js                   # Service worker (offline caching)
-├── PLAN.md                 # Project roadmap and collaboration plan
-├── CHANGELOG.md          # Changelog (date-versioned)
+├── CHANGELOG.md            # Changelog (date-versioned)
 ├── css/
 │   └── styles.css          # All styles
 ├── js/
@@ -126,10 +125,6 @@ Kapow/
 |----------|-------|
 | Medium | AI `reveals` array not bounds-checked — edge case crash if <2 unrevealed cards |
 | Low | Round-end screen re-rendered on every `refreshUI()` during scoring phase |
-
-### Roadmap
-
-See [PLAN.md](PLAN.md) for prioritized roadmap and collaboration notes.
 
 ---
 
