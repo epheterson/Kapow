@@ -3789,10 +3789,25 @@ function completeTutorial() {
 window.resetTutorial = function() {
   try { localStorage.removeItem('kapow-tutorial-done'); } catch(e) {}
   document.getElementById('help-modal').classList.add('hidden');
-  // Restart game with tutorial
+
+  // Ensure game layout is visible (may be called from name screen)
+  document.getElementById('name-screen').classList.add('hidden');
+  document.getElementById('page-layout').classList.remove('hidden');
+  var helpToggle = document.getElementById('help-toggle');
+  if (helpToggle) helpToggle.classList.add('visible');
+
+  // Use current name or fallback
+  if (!playerName) playerName = 'Player';
+  document.getElementById('player-area-header').textContent = playerName + "'s Hand";
+  document.getElementById('sc-player-name').textContent = playerName;
+
   gameState = createGameState([playerName, 'AI']);
   logSystem(gameState, '=== New Game (Tutorial Replay): ' + playerName + ' vs AI ===');
   startRound(gameState);
+  if (!window._kapowEventsBound) {
+    bindGameEvents();
+    window._kapowEventsBound = true;
+  }
   refreshUI();
 };
 
@@ -4023,7 +4038,10 @@ function startGameWithName() {
   gameState = createGameState([name, 'AI']);
   logSystem(gameState, '=== New Game: ' + name + ' vs AI ===');
   startRound(gameState);
-  bindGameEvents();
+  if (!window._kapowEventsBound) {
+    bindGameEvents();
+    window._kapowEventsBound = true;
+  }
   refreshUI();
 }
 
@@ -4675,7 +4693,14 @@ function showRoundEnd() {
     var wasDoubled = finalScore > rawScore;
     html += '<p style="margin-top: 12px; font-size: 14px; opacity: 0.8;">' + fopName + ' went out first.';
     if (wasDoubled) {
-      html += ' <span style="color: #ef4444;">Score doubled (' + rawScore + ' \u2192 ' + finalScore + ') \u2014 didn\u2019t have the lowest!</span>';
+      // Distinguish tied vs clearly-higher doubling
+      var otherScores = [];
+      for (var j = 0; j < gameState.players.length; j++) {
+        if (j !== fop) otherScores.push(scoreHand(gameState.players[j].hand));
+      }
+      var lowestOther = Math.min.apply(null, otherScores);
+      var reason = (rawScore === lowestOther) ? 'tied \u2014 must be strictly lowest!' : 'didn\u2019t have the lowest!';
+      html += ' <span style="color: #ef4444;">Score doubled (' + rawScore + ' \u2192 ' + finalScore + ') \u2014 ' + reason + '</span>';
     }
     html += '</p>';
   }

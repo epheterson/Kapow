@@ -44,6 +44,12 @@ Saw this and had to fork it. Cool to see what you built — here's what stands o
 - **"Understand AI's Move" on mobile** — full-featured on all screen sizes
 - **Lightbulb takeaway tips** — contextual insights in the AI explanation modal
 
+**Onboarding & polish (v0.4.x):**
+- **Interactive tutorial** — first game uses a stacked deck that walks you through triad completion, power card stacking, and KAPOW wild cards with coaching messages. Replayable from How to Play.
+- **Card number clarity** — switched card values from Bangers to DM Sans bold so 7 and 1 are no longer identical
+- **Doubling penalty explanation** — round-end screen now shows exactly why your score was doubled (tied vs. not lowest)
+- **Remembered player name** — cached in localStorage, welcome back message on return
+
 **Infrastructure:**
 - **PWA / iOS web app** — manifest.json, service worker, Apple meta tags, app icons. "Add to Home Screen" works as a standalone app.
 - **iOS Safari viewport handling** — `dvh`/`svh` units, `position: fixed` viewport lock, `overscroll-behavior: none`, touch event scroll prevention
@@ -106,6 +112,7 @@ Single-file IIFE bundle (`js/kapow.js`, ~192KB unminified):
 | Game State | State machine: setup → firstTurn → playing → finalTurns → scoring → gameOver |
 | AI Engine | Multi-layered heuristic evaluation with opponent modeling |
 | UI | DOM rendering, modals, animations, scorecard |
+| Tutorial | Stacked-deck onboarding: triads, power cards, KAPOW mechanics |
 | Action Log | Turn-by-turn history with text export |
 
 ### The AI
@@ -155,7 +162,7 @@ Prioritized by impact-to-effort ratio:
 
 ### Features
 
-- [ ] **Interactive tutorial** — first-game guidance with tooltip arrows
+- [x] **Interactive tutorial** — stacked-deck first game with coaching messages (v0.4.0)
 - [ ] **Difficulty levels** — beginner (random/greedy), normal (current), expert (deeper eval)
 - [ ] **Persistent stats** — win/loss, streaks, best round via localStorage
 - [ ] **Undo button** — snapshot state before each action, restore on undo
@@ -183,7 +190,7 @@ Kapow/
 ├── css/
 │   └── styles.css          # All styles
 ├── js/
-│   ├── kapow.js            # Production bundle (~4,800 lines)
+│   ├── kapow.js            # Production bundle (~5,100 lines)
 │   ├── sound.js            # Web Audio API synthesized sounds
 │   ├── ai.js               # AI heuristics (modular, NOT loaded)
 │   ├── deck.js             # Card/deck creation (modular)
@@ -206,4 +213,4 @@ Kapow/
 
 Original game by [cpheterson](https://github.com/cpheterson)
 
-Fork by [epheterson](https://github.com/epheterson) — adding design polish, mobile support, rules, and PWA
+Fork by [epheterson](https://github.com/epheterson) — adding design polish, mobile support, rules, tutorial, sounds, and PWA
