@@ -520,7 +520,8 @@ body::before {
   50% { box-shadow: 0 0 22px rgba(249, 115, 22, 0.9); }
 }
 
-.pile.discard-target {
+.pile.discard-target .card,
+.pile.discard-target .empty-pile {
   animation: pulse 1.2s infinite;
 }
 
@@ -1228,9 +1229,9 @@ body::before {
   }
 
   #ai-area { grid-area: ai; }
-  #left-column { grid-area: draw; justify-self: center; }
-  #discard-pile { grid-area: discard; justify-self: center; }
-  #center-strip { grid-area: msg; }
+  #left-column { grid-area: draw; justify-self: center; align-self: start; }
+  #discard-pile { grid-area: discard; justify-self: center; align-self: start; }
+  #center-strip { grid-area: msg; align-self: start; }
   #player-area { grid-area: player; }
 
   /* AI hand — same card size as player, just hide labels to save space */
@@ -1243,18 +1244,17 @@ body::before {
     display: none;
   }
 
-  /* Draw pile column — stack vertically, understand button below */
+  /* Draw pile column — just the pile, no extra elements */
   #left-column {
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
     align-items: center;
   }
 
-  /* Show Understand AI Move on mobile — compact styling */
-  #left-column .understand-btn {
+  /* Understand AI Move — compact in center strip on mobile */
+  .understand-btn {
     font-size: 9px;
-    padding: 4px 6px;
-    max-width: var(--card-width);
+    padding: 3px 8px;
     line-height: 1.2;
   }
 
@@ -1439,7 +1439,7 @@ body::before {
 
 }
 
-/* ---- Left Column (draw pile + understand button) ---- */
+/* ---- Left Column (draw pile) ---- */
 #left-column {
   display: flex;
   flex-direction: column;
@@ -1456,8 +1456,8 @@ body::before {
   padding: 6px 10px;
   line-height: 1.3;
   text-align: center;
-  width: 100%;
-  max-width: 110px;
+  width: auto;
+  max-width: 200px;
   transition: all 0.2s ease;
 }
 
@@ -1498,6 +1498,8 @@ body::before {
   border: 2px solid #3b82f6;
   max-height: 80vh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   box-shadow: 0 24px 48px rgba(0,0,0,0.5);
 }
 
