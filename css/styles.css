@@ -670,6 +670,27 @@ body::before {
   50% { box-shadow: 0 0 24px rgba(59, 130, 246, 0.8), 0 0 48px rgba(59, 130, 246, 0.3); }
 }
 
+/* Hint button */
+.hint-btn {
+  background: transparent;
+  color: var(--color-accent);
+  border: 1px solid rgba(251, 191, 36, 0.3) !important;
+  font-size: 11px;
+  padding: 4px 10px;
+}
+
+.hint-btn:hover:not(:disabled) {
+  background: rgba(251, 191, 36, 0.1);
+  box-shadow: 0 2px 8px rgba(251, 191, 36, 0.15);
+  border-color: rgba(251, 191, 36, 0.5) !important;
+}
+
+/* Hint message in game message area */
+.hint-message {
+  color: var(--color-accent);
+  font-style: italic;
+}
+
 /* ---- Power Card Modal ---- */
 #power-modal {
   position: fixed;
@@ -1067,6 +1088,14 @@ body::before {
     border-radius: 10px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     margin-bottom: 6px;
+  }
+
+  #mobile-score-bar .version-tag {
+    color: rgba(255, 255, 255, 0.2);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    margin-left: auto;
   }
 
   #mobile-score-bar .score-label {
@@ -1494,6 +1523,31 @@ body::before {
 #explain-text .explain-label {
   font-weight: 700;
   color: #60a5fa;
+}
+
+/* Lightbulb takeaway tip */
+.explain-takeaway {
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.12), rgba(251, 191, 36, 0.06));
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  border-radius: 10px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  line-height: 1.5;
+}
+
+.explain-takeaway-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.explain-takeaway-text {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .explain-modal-content .action-btn {
