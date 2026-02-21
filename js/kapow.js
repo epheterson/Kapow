@@ -1107,10 +1107,15 @@ function handlePlaceCard(state, triadIndex, position) {
       var tutMsg = getTutorialMessage(state, 'triad_complete');
       if (tutMsg) state.message = tutMsg;
     } else if (!result.hand.triads[triadIndex].isDiscarded &&
-               result.hand.triads[triadIndex][position][0] &&
-               result.hand.triads[triadIndex][position][0].type === 'kapow') {
-      var tutMsg2 = getTutorialMessage(state, 'kapow_placed');
-      if (tutMsg2) state.message = tutMsg2;
+               result.hand.triads[triadIndex][position][0]) {
+      var placedType = result.hand.triads[triadIndex][position][0].type;
+      if (placedType === 'kapow') {
+        var tutMsg2 = getTutorialMessage(state, 'kapow_placed');
+        if (tutMsg2) state.message = tutMsg2;
+      } else if (placedType === 'power') {
+        var tutMsg3 = getTutorialMessage(state, 'power_placed_standalone', result.hand.triads[triadIndex][position][0]);
+        if (tutMsg3) state.message = tutMsg3;
+      }
     }
   }
 
@@ -3766,7 +3771,7 @@ function renderDrawPile(state) {
 // ========================================
 
 var tutorialActive = false;
-var tutorialSeen = { triad: false, power: false, kapow: false };
+var tutorialSeen = { triad: false, powerDraw: false, powerStacked: false, kapow: false };
 
 function isTutorial() { return tutorialActive; }
 
@@ -3779,6 +3784,17 @@ function completeTutorial() {
   tutorialActive = false;
   try { localStorage.setItem('kapow-tutorial-done', '1'); } catch(e) {}
 }
+
+// Exposed globally for the "Replay Tutorial" button in How to Play
+window.resetTutorial = function() {
+  try { localStorage.removeItem('kapow-tutorial-done'); } catch(e) {}
+  document.getElementById('help-modal').classList.add('hidden');
+  // Restart game with tutorial
+  gameState = createGameState([playerName, 'AI']);
+  logSystem(gameState, '=== New Game (Tutorial Replay): ' + playerName + ' vs AI ===');
+  startRound(gameState);
+  refreshUI();
+};
 
 function buildTutorialDeck() {
   // Stacked deck that guarantees encountering all 3 key mechanics:
@@ -3814,6 +3830,9 @@ function buildTutorialDeck() {
     drawPile.push(createCard('fixed', Math.floor(Math.random() * 13)));
   }
   // Then place stacked cards (drawn in reverse order):
+  // Turn sequence: Player → AI → Player → AI → Player → AI → Player...
+  drawPile.push(createCard('power', 1, [-1, 1]));       // Player turn 4 draw (7th pop) — standalone power
+  drawPile.push(createCard('fixed', 8));                // AI turn 3 draw (6th pop)
   drawPile.push(createCard('kapow', 0));               // Player turn 3 draw (5th pop)
   drawPile.push(createCard('fixed', 6));                // AI turn 2 draw (4th pop)
   drawPile.push(createCard('power', 2, [-2, 2]));       // Player turn 2 draw (3rd pop)
@@ -3846,7 +3865,7 @@ function startTutorialRound(state) {
   state.previousFirstOut = null;
 
   tutorialActive = true;
-  tutorialSeen = { triad: false, power: false, kapow: false };
+  tutorialSeen = { triad: false, powerDraw: false, powerStacked: false, kapow: false };
   state.message = "Welcome to KAPOW! Tap your first 2 cards to peek at what you've got.";
 
   logSystem(state, '=== Round 1 starts (Tutorial) ===');
@@ -3889,10 +3908,13 @@ function getTutorialMessage(state, event, extra) {
       tutorialSeen.kapow = true;
       return "KAPOW! The wild card — it can be ANY value 0\u201312. Place it where it\u2019ll help build a triad. But careful: unused KAPOW costs 25 points!";
     }
-    if (drawn.type === 'power' && !tutorialSeen.power) {
-      tutorialSeen.power = true;
+    if (drawn.type === 'power' && !tutorialSeen.powerDraw) {
+      tutorialSeen.powerDraw = true;
       var modStr = drawn.modifiers[0] + '/' + (drawn.modifiers[1] > 0 ? '+' : '') + drawn.modifiers[1];
       return "\u26A1 Power Card! Face value " + drawn.faceValue + ", modifiers " + modStr + ". Stack it under a revealed card to change its value, or play it standalone.";
+    }
+    if (drawn.type === 'power' && tutorialSeen.powerDraw && tutorialSeen.powerStacked) {
+      return "\u26A1 Another Power Card! This time try placing it as a standalone " + drawn.faceValue + " — it keeps its face value.";
     }
     if (drawn.type === 'fixed' && drawn.faceValue === 7) {
       // Check if they have two 7s visible in a triad
@@ -3920,8 +3942,8 @@ function getTutorialMessage(state, event, extra) {
     return "Three of a kind \u2014 triad complete! That whole column scores 0. That's the goal!";
   }
 
-  if (event === 'power_stacked' && !tutorialSeen.power) {
-    tutorialSeen.power = true;
+  if (event === 'power_stacked' && !tutorialSeen.powerStacked) {
+    tutorialSeen.powerStacked = true;
     return "Stacked! The modifier changes that position\u2019s effective value. Power cards are the key to creative triads.";
   }
 
@@ -3934,7 +3956,7 @@ function getTutorialMessage(state, event, extra) {
   }
 
   // Check if all mechanics seen — end tutorial
-  if (tutorialSeen.triad && tutorialSeen.power && tutorialSeen.kapow) {
+  if (tutorialSeen.triad && tutorialSeen.powerDraw && tutorialSeen.kapow) {
     completeTutorial();
     return "Sets, Power Cards, KAPOW \u2014 you\u2019ve seen it all! Runs work too (e.g. 5-6-7). Now play for real. Good luck!";
   }
@@ -4646,8 +4668,16 @@ function showRoundEnd() {
   html += '</table>';
 
   if (gameState.firstOutPlayer !== null) {
-    html += '<p style="margin-top: 12px; font-size: 14px; opacity: 0.8;">' +
-      escapeHTML(gameState.players[gameState.firstOutPlayer].name) + ' went out first.</p>';
+    var fop = gameState.firstOutPlayer;
+    var fopName = escapeHTML(gameState.players[fop].name);
+    var rawScore = scoreHand(gameState.players[fop].hand);
+    var finalScore = gameState.players[fop].roundScores[gameState.players[fop].roundScores.length - 1];
+    var wasDoubled = finalScore > rawScore;
+    html += '<p style="margin-top: 12px; font-size: 14px; opacity: 0.8;">' + fopName + ' went out first.';
+    if (wasDoubled) {
+      html += ' <span style="color: #ef4444;">Score doubled (' + rawScore + ' \u2192 ' + finalScore + ') \u2014 didn\u2019t have the lowest!</span>';
+    }
+    html += '</p>';
   }
 
   scores.innerHTML = html;

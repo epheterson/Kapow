@@ -244,11 +244,11 @@ body::before {
 }
 
 .card-value-center {
-  font-size: 42px;
+  font-size: 38px;
   font-weight: 700;
   line-height: 1;
-  font-family: var(--font-display);
-  letter-spacing: 1px;
+  font-family: var(--font-body);
+  letter-spacing: -1px;
 }
 
 .card-type-label {
@@ -286,10 +286,10 @@ body::before {
 }
 
 .card-power-face-value {
-  font-size: 36px;
+  font-size: 34px;
   font-weight: 700;
-  font-family: var(--font-display);
-  letter-spacing: 1px;
+  font-family: var(--font-body);
+  letter-spacing: -1px;
 }
 
 .card-power-modifiers {
@@ -1235,9 +1235,9 @@ body::before {
   }
 
   #ai-area { grid-area: ai; }
-  #left-column { grid-area: draw; justify-self: center; align-self: center; }
-  #discard-pile { grid-area: discard; justify-self: center; align-self: center; }
-  #center-strip { grid-area: msg; align-self: center; }
+  #left-column { grid-area: draw; justify-self: center; align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #discard-pile { grid-area: discard; justify-self: center; align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #center-strip { grid-area: msg; align-self: stretch; justify-content: center; }
   #player-area { grid-area: player; }
 
   /* AI hand — same card size as player, just hide labels to save space */
@@ -1309,7 +1309,11 @@ body::before {
   }
 
   .pile {
-    gap: 1px;
+    gap: 0;
+  }
+
+  .pile-count {
+    display: none;
   }
 
   /* Turn counter hidden on mobile — redundant with score bar round info */
