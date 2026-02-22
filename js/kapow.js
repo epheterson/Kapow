@@ -4162,8 +4162,15 @@ window._onCardClick = function(triadIndex, position) {
       swapKapowCard(hand, completedTriadIdx, kapowPos, completedTriadIdx, position);
       logAction(gameState, 0, 'Swaps KAPOW! within completed triad: ' + fromLabel + ' ↔ ' + toLabel);
 
-      // Discard the completed triad after the swap
-      completeWithinTriadSwap(gameState, completedTriadIdx, position);
+      // Check if player wants to swap again (KAPOW might be in a new position now)
+      if (hasRevealedKapow(hand.triads[completedTriadIdx])) {
+        gameState.message = 'KAPOW! swapped! Swap again, or Discard Triad and End Turn.';
+        logHandState(gameState, 0);
+        refreshUI();
+      } else {
+        // No more KAPOW in the triad (shouldn't happen), proceed to discard
+        completeWithinTriadSwap(gameState, completedTriadIdx, position);
+      }
     });
     return;
   }

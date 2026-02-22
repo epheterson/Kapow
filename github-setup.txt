@@ -1,0 +1,57 @@
+KAPOW! Game — GitHub Setup Steps
+==================================
+
+STEP 1: Create a GitHub Account (skip if you already have one)
+---------------------------------------------------------------
+Go to: https://github.com
+Click "Sign up" and follow the prompts.
+
+
+STEP 2: Create a New Repository on GitHub
+------------------------------------------
+1. Log in to GitHub.
+2. Click the "+" icon in the top-right corner → "New repository"
+3. Fill in:
+   - Repository name: kapow-game  (or whatever you prefer)
+   - Description: KAPOW! card game — browser-based learning tool
+   - Visibility: Public  (so testers can access it without an account)
+   - Do NOT check "Add a README", "Add .gitignore", or "Choose a license"
+     (the local repo already has these)
+4. Click "Create repository"
+5. GitHub will show a page with setup commands. Copy your repository URL —
+   it will look like: https://github.com/YOUR-USERNAME/kapow-game.git
+
+
+STEP 3: Connect the Local Repo to GitHub
+------------------------------------------
+Open a terminal (Command Prompt or PowerShell) and run these commands,
+replacing YOUR-USERNAME with your GitHub username:
+
+   cd "E:\OneDrive\Documents\Chuck\Claude\kapow-game"
+   git remote add origin https://github.com/YOUR-USERNAME/kapow-game.git
+   git branch -M master
+   git push -u origin master
+
+GitHub will prompt you to log in if you haven't already.
+
+
+STEP 4: Share the Link
+------------------------
+Once pushed, your shareable link will be:
+
+   https://github.com/YOUR-USERNAME/kapow-game
+
+Testers can open the game directly in their browser via GitHub Pages
+(see STEP 5), or they can download/clone the repo and open index.html.
+
+
+STEP 5 (Optional): Enable GitHub Pages so testers can play in-browser
+-----------------------------------------------------------------------
+1. On your GitHub repo page, click "Settings"
+2. In the left sidebar, click "Pages"
+3. Under "Branch", select "master" and folder "/ (root)", then click Save.
+4. After a minute, the game will be live at:
+
+   https://YOUR-USERNAME.github.io/kapow-game/
+
+Share that URL and testers can play instantly — no download needed.
