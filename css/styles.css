@@ -2213,7 +2213,7 @@ body:has(#page-layout:not(.hidden)) #help-toggle {
   color: rgba(255, 255, 255, 0.5);
   font-weight: 500;
   letter-spacing: 0.5px;
-  pointer-events: none;
+  pointer-events: auto;
   display: none; /* hidden on mobile — version shown in top bar instead */
 }
 
@@ -2225,4 +2225,296 @@ body:has(#page-layout:not(.hidden)) #help-toggle {
 
 #revision-text {
   font-family: 'Courier New', monospace;
+}
+
+/* ========================================
+   BUY FUNNEL — CTAs & Modals
+   ======================================== */
+
+/* Footer buy link */
+.footer-sep {
+  margin: 0 6px;
+  opacity: 0.3;
+}
+
+.footer-buy {
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 11px;
+  pointer-events: auto;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.footer-buy:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* Name screen CTA tiers */
+#name-screen-cta {
+  margin-top: 16px;
+}
+
+.kapow-cta-quiet {
+  margin-top: 8px;
+}
+
+.kapow-buy-link-quiet {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s ease;
+}
+
+.kapow-buy-link-quiet:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.kapow-cta-subtle {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 8px;
+}
+
+.kapow-buy-link {
+  background: none;
+  border: none;
+  color: var(--color-accent);
+  font-family: var(--font-body);
+  font-size: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: opacity 0.2s ease;
+}
+
+.kapow-buy-link:hover {
+  opacity: 0.8;
+}
+
+/* Banner CTA (3+ games) */
+.kapow-cta-banner {
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.kapow-buy-btn {
+  display: inline-block;
+  padding: 10px 24px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 700;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  background: var(--color-accent);
+  color: #1c1917;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  text-align: center;
+}
+
+.kapow-buy-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);
+}
+
+/* Warm variant (game over) */
+.kapow-buy-btn-warm {
+  background: linear-gradient(135deg, var(--color-accent), #f59e0b);
+}
+
+/* Game over CTA */
+.kapow-cta-gameover {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+}
+
+.kapow-cta-gameover p {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 10px;
+}
+
+/* Round end CTA */
+.kapow-cta-round {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+/* Interstitial overlay */
+#kapow-interstitial {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 210;
+}
+
+.interstitial-content {
+  background: linear-gradient(145deg, #0f2a1a, #1a3f2a);
+  padding: 40px;
+  border-radius: 20px;
+  text-align: center;
+  max-width: 420px;
+  width: 90%;
+  border: 2px solid var(--color-accent);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+}
+
+.interstitial-content h2 {
+  font-family: var(--font-display);
+  font-size: 36px;
+  color: var(--color-accent);
+  margin-bottom: 12px;
+  letter-spacing: 4px;
+}
+
+.interstitial-text {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.interstitial-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.interstitial-show {
+  background: var(--color-accent) !important;
+  color: #1c1917 !important;
+  font-size: 15px !important;
+  padding: 10px 24px !important;
+}
+
+.interstitial-later {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  font-size: 14px !important;
+  padding: 10px 20px !important;
+}
+
+.interstitial-later:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Email capture modal */
+#kapow-buy-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 220;
+}
+
+.buy-modal-content {
+  background: linear-gradient(145deg, #0f2a1a, #1a3f2a);
+  padding: 36px;
+  border-radius: 20px;
+  text-align: center;
+  max-width: 420px;
+  width: 90%;
+  border: 2px solid var(--color-accent);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+  position: relative;
+}
+
+.buy-modal-content h2 {
+  font-family: var(--font-display);
+  font-size: 28px;
+  color: var(--color-accent);
+  margin-bottom: 10px;
+  letter-spacing: 2px;
+}
+
+.buy-modal-content p {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.75);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.buy-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: color 0.15s ease;
+}
+
+.buy-modal-close:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.buy-modal-input {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  font-family: var(--font-body);
+  font-size: 15px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  text-align: center;
+  outline: none;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+}
+
+.buy-modal-input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.buy-modal-input:focus {
+  border-color: var(--color-accent);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+#kapow-email-thanks p {
+  color: var(--color-success);
+  font-weight: 600;
+  font-size: 15px;
 }

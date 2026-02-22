@@ -17,7 +17,7 @@
 
   <!-- Open Graph -->
   <meta property="og:title" content="KAPOW! Card Game">
-  <meta property="og:description" content="An original card game with a sophisticated AI opponent">
+  <meta property="og:description" content="An original card game — play against Kai, the built-in opponent">
   <meta property="og:type" content="website">
 
   <!-- Fonts -->
@@ -36,6 +36,36 @@
       <input type="text" id="player-name-input" placeholder="Your name" maxlength="20" autofocus>
       <button id="btn-start-game" class="action-btn">Start Game</button>
       <button id="btn-how-to-play" class="help-link" onclick="document.getElementById('help-modal').classList.remove('hidden')">How to Play</button>
+      <div id="name-screen-cta"></div>
+    </div>
+  </div>
+
+  <!-- Buy Interstitial (shown before game for engaged players) -->
+  <div id="kapow-interstitial" class="hidden">
+    <div class="interstitial-content">
+      <h2>KAPOW!</h2>
+      <p class="interstitial-text"></p>
+      <div class="interstitial-buttons">
+        <button class="action-btn interstitial-show">Show Me</button>
+        <button class="action-btn interstitial-later">Maybe Later</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Email Capture Modal (pre-Amazon) -->
+  <div id="kapow-buy-modal" class="hidden" onclick="if(event.target===this)hideBuyModal()">
+    <div class="buy-modal-content">
+      <button class="buy-modal-close" onclick="hideBuyModal()">&times;</button>
+      <h2>Get the Real Deck</h2>
+      <p>KAPOW! is coming to Amazon soon. Leave your email and we'll let you know the moment it's available.</p>
+      <form id="kapow-email-form" action="https://docs.google.com/forms/d/1sOwXtDq9HZpbuwt5C_7qWD6LCOEWSIreNdwBboE_S3A/formResponse" method="POST" target="kapow-email-hidden" onsubmit="setTimeout(function(){document.getElementById('kapow-email-thanks').classList.remove('hidden');document.getElementById('kapow-email-form').classList.add('hidden')},500)">
+        <input type="email" name="entry.1116097858" placeholder="your@email.com" required class="buy-modal-input">
+        <button type="submit" class="action-btn kapow-buy-btn">Notify Me</button>
+      </form>
+      <div id="kapow-email-thanks" class="hidden">
+        <p>You're on the list! We'll email you when KAPOW! is available.</p>
+      </div>
+      <iframe name="kapow-email-hidden" style="display:none"></iframe>
     </div>
   </div>
 
@@ -50,9 +80,9 @@
       <button id="mobile-help-btn" class="top-bar-btn" onclick="document.getElementById('help-modal').classList.remove('hidden')">?</button>
       <span class="round-info" id="mobile-round">Round 1</span>
       <span><span class="score-label" id="mobile-player-label">You</span> <span class="score-value" id="mobile-player-score">0</span></span>
-      <span><span class="score-label">AI</span> <span class="score-value" id="mobile-ai-score">0</span></span>
+      <span><span class="score-label">Kai</span> <span class="score-value" id="mobile-ai-score">0</span></span>
       <button id="btn-mute" class="mute-btn" title="Mute sounds" onclick="KapowSounds.toggleMute()">&#x1F50A;</button>
-      <span class="version-tag">02-21-2026 v7</span>
+      <span class="version-tag">02-21-2026 v8</span>
       <button id="sidebar-toggle" class="top-bar-btn" onclick="document.getElementById('sidebar').classList.toggle('mobile-visible')">Score</button>
     </div>
 
@@ -76,7 +106,7 @@
       <div id="hands-column">
         <!-- AI Hand Area -->
         <section id="ai-area">
-          <h2>AI Opponent</h2>
+          <h2>Kai</h2>
           <div id="ai-hand" class="hand-grid"></div>
         </section>
 
@@ -87,7 +117,7 @@
             <button id="btn-hint" class="action-btn hint-btn" disabled>Hint</button>
             <button id="btn-end-turn" class="action-btn" disabled>End Turn</button>
           </div>
-          <button id="btn-understand-move" class="action-btn understand-btn" disabled>Understand AI's Move</button>
+          <button id="btn-understand-move" class="action-btn understand-btn" disabled>Understand Kai's Move</button>
         </div>
 
         <!-- Player Hand Area -->
@@ -116,7 +146,7 @@
     <!-- AI Move Explanation Modal -->
     <div id="explain-modal" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
       <div class="explain-modal-content">
-        <h3>Understanding AI's Move</h3>
+        <h3>Understanding Kai's Move</h3>
         <div id="explain-text"></div>
         <button id="btn-close-explain" class="action-btn">Close</button>
       </div>
@@ -158,7 +188,7 @@
         <tr>
           <th>Round</th>
           <th id="sc-player-name">You</th>
-          <th id="sc-ai-name">AI</th>
+          <th id="sc-ai-name">Kai</th>
         </tr>
       </thead>
       <tbody id="scorecard-body">
@@ -189,7 +219,9 @@
 
   <!-- Software Revision Footer (desktop) -->
   <div id="revision-footer">
-    <span id="revision-text">02-21-2026 v7</span>
+    <span id="revision-text">02-21-2026 v8</span>
+    <span class="footer-sep">&middot;</span>
+    <a id="footer-buy-link" href="#" onclick="event.preventDefault();showBuyModal()" class="footer-buy">Get the Card Game &rarr;</a>
   </div>
 
   <!-- Help / Rules Modal -->
@@ -306,12 +338,12 @@
           <li><strong>Build triads with multiple outs</strong> &mdash; a triad with 9, 9, and 11 can be completed by drawing 9, 10, or a KAPOW!</li>
           <li><strong>Power cards can make negative values</strong> &mdash; a -2 power under a 0 = -2 points. Keep those!</li>
           <li><strong>Watch the discard pile</strong> &mdash; when you complete a triad, its top card becomes available to your opponent</li>
-          <li><strong>Don't go out too early</strong> &mdash; if the AI has a lower score, yours gets doubled</li>
+          <li><strong>Don't go out too early</strong> &mdash; if Kai has a lower score, yours gets doubled</li>
           <li><strong>KAPOW! cards are flexible</strong> &mdash; swap them around to where they're needed most before they get frozen</li>
         </ul>
 
-        <h3>Use "Understand AI's Move"</h3>
-        <p>After the AI plays, click the <strong>Understand AI's Move</strong> button to see its reasoning. Great way to learn advanced strategy.</p>
+        <h3>Use "Understand Kai's Move"</h3>
+        <p>After Kai plays, click the <strong>Understand Kai's Move</strong> button to see the reasoning. Great way to learn advanced strategy.</p>
       </div>
     </div>
   </div>
