@@ -47,7 +47,7 @@
       <h2>KAPOW!</h2>
       <p class="interstitial-text"></p>
       <div class="interstitial-buttons">
-        <button class="action-btn interstitial-show">Show Me</button>
+        <button class="action-btn interstitial-show">Get the Deck — $19.99</button>
         <button class="action-btn interstitial-later">Maybe Later</button>
       </div>
     </div>
@@ -58,13 +58,13 @@
     <div class="buy-modal-content">
       <button class="buy-modal-close" onclick="hideBuyModal()">&times;</button>
       <h2>Get the Real Deck</h2>
-      <p>KAPOW! is coming to Amazon soon. Leave your email and we'll let you know the moment it's available.</p>
+      <p>The physical KAPOW! card game — real cards, travel case included. <strong>$19.99 + $4.99 shipping.</strong> Leave your email and we'll send you the checkout link.</p>
       <form id="kapow-email-form" action="https://docs.google.com/forms/d/1sOwXtDq9HZpbuwt5C_7qWD6LCOEWSIreNdwBboE_S3A/formResponse" method="POST" target="kapow-email-hidden" onsubmit="setTimeout(function(){document.getElementById('kapow-email-thanks').classList.remove('hidden');document.getElementById('kapow-email-form').classList.add('hidden')},500)">
         <input type="email" name="entry.1116097858" placeholder="your@email.com" required class="buy-modal-input">
-        <button type="submit" class="action-btn kapow-buy-btn">Notify Me</button>
+        <button type="submit" class="action-btn kapow-buy-btn">Send Me the Link</button>
       </form>
       <div id="kapow-email-thanks" class="hidden">
-        <p>You're on the list! We'll email you when KAPOW! is available.</p>
+        <p>Got it! You'll hear from us shortly with the checkout link.</p>
       </div>
       <iframe name="kapow-email-hidden" style="display:none"></iframe>
     </div>
