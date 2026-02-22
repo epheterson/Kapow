@@ -2,6 +2,15 @@
 
 ## Version History
 
+### 02-21-2026 v2
+**Removed frozen KAPOW property (deprecated feature).**
+- KAPOW cards are never frozen; this feature was removed from game long ago
+- Cleaned up all references to isFrozen and assignedValue properties
+- Simplified KAPOW checks from 'type === kapow && !isFrozen' to 'type === kapow'
+- Removed triad freezing logic and KAPOW reset when discarded
+- Code now reflects actual game mechanics where KAPOW is always wild (0-12)
+- Commit: 832e09e
+
 ### 02-21-2026 v1
 **Implemented within-triad KAPOW swaps for strategic card positioning.**
 - When a placement completes a triad containing a revealed KAPOW, player can now swap it within that triad before discard
@@ -57,4 +66,4 @@ When making changes that warrant a version bump:
 
 ---
 
-## Latest Version: 02-21-2026 v1
+## Latest Version: 02-21-2026 v2
