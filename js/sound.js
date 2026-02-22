@@ -264,6 +264,54 @@ var KapowSounds = (function() {
     }
   }
 
+  // Round win: triumphant ascending fanfare (C4→E4→G4→C5 fast + shimmer)
+  function roundWin(volume) {
+    var ac = ensureContext();
+    if (!ac || muted) return;
+    resume();
+    var vol = volume || 1;
+    var now = ac.currentTime;
+    var notes = [261.63, 329.63, 392.00, 523.25, 659.25]; // C4 E4 G4 C5 E5
+
+    for (var i = 0; i < notes.length; i++) {
+      var t = now + i * 0.08;
+      playTone(notes[i], 'sine', t, 0.4, 0.2 * vol, ac.destination);
+      playTone(notes[i] * 2, 'triangle', t, 0.25, 0.08 * vol, ac.destination);
+    }
+    // Final shimmer chord
+    var t2 = now + 0.45;
+    playTone(523.25, 'sine', t2, 0.6, 0.15 * vol, ac.destination);
+    playTone(659.25, 'sine', t2, 0.6, 0.12 * vol, ac.destination);
+    playTone(783.99, 'triangle', t2, 0.6, 0.08 * vol, ac.destination);
+  }
+
+  // Streak: extra sparkle ping after round win
+  function streakPing(volume) {
+    var ac = ensureContext();
+    if (!ac || muted) return;
+    resume();
+    var vol = volume || 1;
+    var now = ac.currentTime;
+    // Two quick high pings
+    playTone(1318.51, 'sine', now, 0.15, 0.15 * vol, ac.destination);       // E6
+    playTone(1567.98, 'sine', now + 0.1, 0.2, 0.18 * vol, ac.destination);  // G6
+  }
+
+  // Personal best: sparkly descending arpeggio
+  function personalBest(volume) {
+    var ac = ensureContext();
+    if (!ac || muted) return;
+    resume();
+    var vol = volume || 1;
+    var now = ac.currentTime;
+    var notes = [1046.50, 1318.51, 1567.98, 2093.00]; // C6 E6 G6 C7
+    for (var i = 0; i < notes.length; i++) {
+      var t = now + i * 0.06;
+      playTone(notes[i], 'sine', t, 0.3, 0.12 * vol, ac.destination);
+      playTone(notes[i] * 0.5, 'triangle', t, 0.2, 0.06 * vol, ac.destination);
+    }
+  }
+
   // ---- Mute Toggle ----
 
   function toggleMute() {
@@ -293,6 +341,9 @@ var KapowSounds = (function() {
     triadComplete: triadComplete,
     kapowHit: kapowHit,
     roundEnd: roundEnd,
+    roundWin: roundWin,
+    streakPing: streakPing,
+    personalBest: personalBest,
     gameOver: gameOver,
     toggleMute: toggleMute,
     isMuted: isMuted,

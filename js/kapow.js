@@ -172,6 +172,55 @@ function dismissCta(key) {
   try { localStorage.setItem('kapow-cta-' + key, '1'); } catch(e) {}
 }
 
+// ========================================
+// STATS & DOPAMINE TRACKING
+// ========================================
+var STATS_KEY = 'kapow-stats';
+
+function getStats() {
+  try {
+    var raw = localStorage.getItem(STATS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
+  return { gamesWon: 0, gamesLost: 0, bestGameScore: null, roundsWon: 0, currentStreak: 0, bestStreak: 0 };
+}
+
+function saveStats(stats) {
+  try { localStorage.setItem(STATS_KEY, JSON.stringify(stats)); } catch(e) {}
+}
+
+function recordRoundWin() {
+  var stats = getStats();
+  stats.roundsWon++;
+  stats.currentStreak++;
+  if (stats.currentStreak > stats.bestStreak) stats.bestStreak = stats.currentStreak;
+  saveStats(stats);
+  return stats;
+}
+
+function recordRoundLoss() {
+  var stats = getStats();
+  stats.currentStreak = 0;
+  saveStats(stats);
+  return stats;
+}
+
+function recordGameResult(playerWon, playerScore) {
+  var stats = getStats();
+  if (playerWon) {
+    stats.gamesWon++;
+    if (stats.bestGameScore === null || playerScore < stats.bestGameScore) {
+      stats.bestGameScore = playerScore;
+      saveStats(stats);
+      return { stats: stats, isPersonalBest: true };
+    }
+  } else {
+    stats.gamesLost++;
+  }
+  saveStats(stats);
+  return { stats: stats, isPersonalBest: false };
+}
+
 // Build a buy CTA link/button. Returns HTML string.
 function buildBuyLink(text, cssClass) {
   if (KAPOW_BUY_MODE === 'amazon' && !KAPOW_BUY_URL) {
@@ -5025,8 +5074,9 @@ function showRoundEnd() {
   for (var i = 0; i < gameState.players.length; i++) {
     var player = gameState.players[i];
     var roundScore = player.roundScores[player.roundScores.length - 1];
+    var scoreClass = (i === 0) ? 'score-delta-player' : 'score-delta-kai';
     html += '<tr><td style="padding: 4px 12px; font-weight: bold;">' + escapeHTML(player.name) + '</td>' +
-      '<td style="padding: 4px 12px;">Round: ' + (roundScore >= 0 ? '+' : '') + roundScore + '</td>' +
+      '<td style="padding: 4px 12px;"><span class="score-delta ' + scoreClass + '">' + (roundScore >= 0 ? '+' : '') + roundScore + '</span></td>' +
       '<td style="padding: 4px 12px;">Total: ' + player.totalScore + '</td></tr>';
   }
   html += '</table>';
@@ -5060,7 +5110,32 @@ function showRoundEnd() {
 
   scores.innerHTML = html;
   screen.classList.remove('hidden');
-  KapowSounds.roundEnd();
+
+  // Dopamine: detect round winner and celebrate
+  var playerRoundScore = gameState.players[0].roundScores[gameState.players[0].roundScores.length - 1];
+  var kaiRoundScore = gameState.players[1].roundScores[gameState.players[1].roundScores.length - 1];
+  var playerWonRound = playerRoundScore < kaiRoundScore;
+
+  if (playerWonRound) {
+    var stats = recordRoundWin();
+    KapowSounds.roundWin();
+    // Flash the screen green briefly
+    screen.classList.add('round-win-flash');
+    setTimeout(function() { screen.classList.remove('round-win-flash'); }, 600);
+    // Show streak badge if 2+ in a row
+    if (stats.currentStreak >= 2) {
+      setTimeout(function() {
+        KapowSounds.streakPing();
+        var badge = document.createElement('div');
+        badge.className = 'streak-badge';
+        badge.textContent = stats.currentStreak + ' wins in a row!';
+        scores.appendChild(badge);
+      }, 500);
+    }
+  } else {
+    recordRoundLoss();
+    KapowSounds.roundEnd();
+  }
 }
 
 function showGameOver() {
@@ -5108,7 +5183,38 @@ function showGameOver() {
 
   scores.innerHTML = html;
   screen.classList.remove('hidden');
-  KapowSounds.gameOver(winnerIndex === 0);
+
+  // Dopamine: record result and celebrate
+  var playerWon = winnerIndex === 0;
+  var playerScore = gameState.players[0].totalScore;
+  var result = recordGameResult(playerWon, playerScore);
+
+  if (playerWon) {
+    KapowSounds.gameOver(true);
+    screen.classList.add('game-win-flash');
+    setTimeout(function() { screen.classList.remove('game-win-flash'); }, 800);
+
+    // Personal best celebration
+    if (result.isPersonalBest) {
+      setTimeout(function() {
+        KapowSounds.personalBest();
+        var pbBadge = document.createElement('div');
+        pbBadge.className = 'personal-best-badge';
+        pbBadge.innerHTML = '&#9733; New Personal Best: ' + playerScore + ' points!';
+        scores.insertBefore(pbBadge, scores.firstChild);
+      }, 600);
+    }
+
+    // Show win stats
+    var stats = getStats();
+    var statsLine = document.createElement('p');
+    statsLine.className = 'win-stats-line';
+    statsLine.textContent = stats.gamesWon + ' win' + (stats.gamesWon !== 1 ? 's' : '') + ' total';
+    if (stats.bestStreak >= 2) statsLine.textContent += ' \u00b7 Best streak: ' + stats.bestStreak + ' rounds';
+    scores.appendChild(statsLine);
+  } else {
+    KapowSounds.gameOver(false);
+  }
 }
 
 // AI Turn — multi-step sequence with educational visibility
