@@ -294,6 +294,20 @@ function swapKapowCard(hand, fromTriad, fromPos, toTriad, toPos) {
   return hand;
 }
 
+// Complete the within-triad KAPOW swap phase: discard the completed triad and end turn
+function completeWithinTriadSwap(state, completedTriadIndex, newKapowPosition) {
+  state.swappingWithinCompletedTriad = false;
+  state.completedTriadIndex = -1;
+
+  // Discard the completed triad
+  checkAndDiscardTriads(state, state.currentPlayer);
+  logAction(state, state.currentPlayer, 'Discards completed triad and ends turn.');
+  logHandState(state, state.currentPlayer);
+
+  // End turn
+  endTurn(state);
+}
+
 function getPositionValue(positionCards) {
   if (positionCards.length === 0) return 0;
   var topCard = positionCards[0];
@@ -525,6 +539,18 @@ function canSwapKapow(hand, triadIndex, position) {
   return card.type === 'kapow' && card.isRevealed;
 }
 
+// Check if a triad has a revealed KAPOW card (used to determine if within-triad swaps should be allowed)
+function hasRevealedKapow(triad) {
+  var positions = ['top', 'middle', 'bottom'];
+  for (var p = 0; p < positions.length; p++) {
+    var posCards = triad[positions[p]];
+    if (posCards.length === 1 && posCards[0].type === 'kapow' && posCards[0].isRevealed) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // ========================================
 // GAME STATE MANAGER
 // ========================================
@@ -556,6 +582,8 @@ function createGameState(playerNames) {
     aiHighlight: null,  // { type: 'draw'|'place'|'reveal'|'discard', triadIndex, position, pile }
     awaitingKapowSwap: false,  // true after place/discard when swappable KAPOWs exist
     selectedKapow: null,  // { triadIndex, position } of selected KAPOW card during swap
+    swappingWithinCompletedTriad: false,  // true when player can swap KAPOW within a just-completed triad before it's discarded
+    completedTriadIndex: -1,  // which triad is being swapped within
     turnNumber: 0,
     actionLog: [],
     aiCommentary: '',
@@ -666,6 +694,8 @@ function startRound(state) {
   state.drawnFromDiscard = false;
   state.awaitingKapowSwap = false;
   state.selectedKapow = null;
+  state.swappingWithinCompletedTriad = false;
+  state.completedTriadIndex = -1;
 
   // Determine who goes first
   var firstPlayer;
@@ -976,12 +1006,18 @@ function endTurn(state) {
 // For AI players, we skip endTurn here — the AI step sequence handles turn completion.
 function checkForKapowSwapOrEndTurn(state) {
   var player = state.players[state.currentPlayer];
+
+  // If already in within-triad swap mode, don't change state
+  if (state.swappingWithinCompletedTriad) {
+    return; // Message already set, awaiting swap input
+  }
+
   if (player.isHuman) {
     var swappable = findSwappableKapowCards(player.hand);
     // Only offer swap if at least one KAPOW has a valid target to swap with
     var hasValidSwap = false;
     for (var i = 0; i < swappable.length; i++) {
-      var targets = findSwapTargets(player.hand, swappable[i].triadIndex, swappable[i].position);
+      var targets = findSwapTargets(player.hand, swappable[i].triadIndex, swappable[i].position, -1);
       if (targets.length > 0) {
         hasValidSwap = true;
         break;
@@ -1028,6 +1064,19 @@ function handlePlaceCard(state, triadIndex, position) {
 
   state.drawnCard = null;
   state.drawnFromDiscard = false;
+
+  // Check if this placement completes a triad with a KAPOW (human player only)
+  var triad = player.hand.triads[triadIndex];
+  if (state.currentPlayer === 0 && isTriadComplete(triad) && hasRevealedKapow(triad)) {
+    // Enter within-triad swap phase BEFORE discard
+    state.swappingWithinCompletedTriad = true;
+    state.completedTriadIndex = triadIndex;
+    state.message = 'Swap KAPOW! within your completed triad, or Discard and End Turn.';
+    logHandState(state, state.currentPlayer);
+    return state;
+  }
+
+  // Normal flow: discard and check for swaps in other triads
   checkAndDiscardTriads(state, state.currentPlayer);
   logHandState(state, state.currentPlayer);
   checkForKapowSwapOrEndTurn(state);
@@ -1057,6 +1106,19 @@ function handleAddPowerset(state, triadIndex, position, usePositiveModifier) {
 
   state.drawnCard = null;
   state.drawnFromDiscard = false;
+
+  // Check if this placement completes a triad with a KAPOW (human player only)
+  var triad_check = player.hand.triads[triadIndex];
+  if (state.currentPlayer === 0 && isTriadComplete(triad_check) && hasRevealedKapow(triad_check)) {
+    // Enter within-triad swap phase BEFORE discard
+    state.swappingWithinCompletedTriad = true;
+    state.completedTriadIndex = triadIndex;
+    state.message = 'Swap KAPOW! within your completed triad, or Discard and End Turn.';
+    logHandState(state, state.currentPlayer);
+    return state;
+  }
+
+  // Normal flow: discard and check for swaps in other triads
   checkAndDiscardTriads(state, state.currentPlayer);
   logHandState(state, state.currentPlayer);
   checkForKapowSwapOrEndTurn(state);
@@ -1089,6 +1151,19 @@ function handleCreatePowersetOnPower(state, triadIndex, position, usePositiveMod
 
   state.drawnCard = null;
   state.drawnFromDiscard = false;
+
+  // Check if this placement completes a triad with a KAPOW (human player only)
+  var triad_check = player.hand.triads[triadIndex];
+  if (state.currentPlayer === 0 && isTriadComplete(triad_check) && hasRevealedKapow(triad_check)) {
+    // Enter within-triad swap phase BEFORE discard
+    state.swappingWithinCompletedTriad = true;
+    state.completedTriadIndex = triadIndex;
+    state.message = 'Swap KAPOW! within your completed triad, or Discard and End Turn.';
+    logHandState(state, state.currentPlayer);
+    return state;
+  }
+
+  // Normal flow: discard and check for swaps in other triads
   logHandState(state, state.currentPlayer);
   checkAndDiscardTriads(state, state.currentPlayer);
   checkForKapowSwapOrEndTurn(state);
@@ -1128,11 +1203,19 @@ function findSwappableKapowCards(hand) {
 }
 
 // Find valid swap targets for a KAPOW! card (any other non-empty position, including face-down cards)
-function findSwapTargets(hand, fromTriad, fromPos) {
+// If withinTriadIndex >= 0, restrict targets to only that triad (for within-completed-triad swaps)
+function findSwapTargets(hand, fromTriad, fromPos, withinTriadIndex) {
+  if (withinTriadIndex === undefined) withinTriadIndex = -1;
   var targets = [];
   for (var t = 0; t < hand.triads.length; t++) {
+    // If restricting to within a specific triad, skip others
+    if (withinTriadIndex >= 0 && t !== withinTriadIndex) continue;
+
     var triad = hand.triads[t];
-    if (triad.isDiscarded) continue;
+    // When swapping within completed triad, DON'T skip isDiscarded
+    // (we're swapping BEFORE discard happens)
+    if (withinTriadIndex < 0 && triad.isDiscarded) continue;
+
     var positions = ['top', 'middle', 'bottom'];
     for (var p = 0; p < positions.length; p++) {
       if (t === fromTriad && positions[p] === fromPos) continue;
@@ -3753,6 +3836,13 @@ function bindGameEvents() {
 function onEndTurn() {
   if (!gameState.players[gameState.currentPlayer].isHuman) return;
 
+  // Within-triad KAPOW swap mode: discard the completed triad and end turn
+  if (gameState.swappingWithinCompletedTriad) {
+    completeWithinTriadSwap(gameState, gameState.completedTriadIndex, null);
+    refreshUI();
+    return;
+  }
+
   // Release Card mode: put discard-drawn card back on the discard pile
   if (gameState.drawnCard && gameState.drawnFromDiscard && !gameState.awaitingKapowSwap) {
     gameState.drawnCard.isRevealed = true;
@@ -3842,7 +3932,7 @@ function refreshUI() {
   document.getElementById('player-area-header').textContent = gameState.players[0].name + "'s Hand";
   var gameMsgEl = document.getElementById('game-message');
   gameMsgEl.textContent = gameState.message;
-  if (isHumanTurn && gameState.awaitingKapowSwap) {
+  if (isHumanTurn && (gameState.awaitingKapowSwap || gameState.swappingWithinCompletedTriad)) {
     gameMsgEl.classList.add('swap-phase-message');
   } else {
     gameMsgEl.classList.remove('swap-phase-message');
@@ -3875,15 +3965,20 @@ function refreshUI() {
   document.getElementById('btn-draw-deck').disabled = !(canDraw && (phase === 'playing' || phase === 'finalTurns'));
   document.getElementById('btn-draw-discard').disabled = !(canDraw && (phase === 'playing' || phase === 'finalTurns') && gameState.discardPile.length > 0);
   document.getElementById('btn-discard').disabled = !(isHumanTurn && gameState.drawnCard !== null && !gameState.drawnFromDiscard);
-  // End Turn / Release Card button
+  // End Turn / Release Card / Discard Triad button
   var endTurnBtn = document.getElementById('btn-end-turn');
-  var isSwapPhase = isHumanTurn && gameState.awaitingKapowSwap;
-  var isReleaseMode = isHumanTurn && gameState.drawnCard && gameState.drawnFromDiscard && !isSwapPhase;
-  endTurnBtn.disabled = !(isSwapPhase || isReleaseMode);
+  var isWithinTriadSwap = isHumanTurn && gameState.swappingWithinCompletedTriad;
+  var isSwapPhase = isHumanTurn && gameState.awaitingKapowSwap && !isWithinTriadSwap;
+  var isReleaseMode = isHumanTurn && gameState.drawnCard && gameState.drawnFromDiscard && !isSwapPhase && !isWithinTriadSwap;
+  endTurnBtn.disabled = !(isSwapPhase || isReleaseMode || isWithinTriadSwap);
   if (isReleaseMode) {
     endTurnBtn.textContent = 'Release Card';
     endTurnBtn.classList.remove('end-turn-glow');
     endTurnBtn.classList.add('release-card-glow');
+  } else if (isWithinTriadSwap) {
+    endTurnBtn.textContent = 'Discard Triad and End Turn';
+    endTurnBtn.classList.add('end-turn-glow');
+    endTurnBtn.classList.remove('release-card-glow');
   } else if (isSwapPhase) {
     endTurnBtn.textContent = 'End Turn';
     endTurnBtn.classList.add('end-turn-glow');
@@ -3933,6 +4028,23 @@ function getClickablePositions() {
         if (triad[pos[p]].length > 0 && !triad[pos[p]][0].isRevealed) {
           positions.push({ triadIndex: t, position: pos[p] });
         }
+      }
+    }
+  } else if (gameState.swappingWithinCompletedTriad) {
+    // Within-triad KAPOW swap: highlight all positions in the completed triad (except the KAPOW itself)
+    var completedTriad = hand.triads[gameState.completedTriadIndex];
+    var pos = ['top', 'middle', 'bottom'];
+    var kapowPos = null;
+    // Find KAPOW position
+    for (var p = 0; p < pos.length; p++) {
+      if (completedTriad[pos[p]].length === 1 && completedTriad[pos[p]][0].type === 'kapow') {
+        kapowPos = pos[p];
+      }
+    }
+    // Add all other positions as clickable
+    for (var p = 0; p < pos.length; p++) {
+      if (pos[p] !== kapowPos) {
+        positions.push({ triadIndex: gameState.completedTriadIndex, position: pos[p] });
       }
     }
   } else if (gameState.awaitingKapowSwap && !gameState.selectedKapow) {
@@ -4001,6 +4113,58 @@ window._onCardClick = function(triadIndex, position) {
       handleFirstTurnReveal(gameState, triadIndex, position);
       refreshUI();
     }
+    return;
+  }
+
+  // Within-triad KAPOW swap phase: swap KAPOW within a just-completed triad before discard
+  if (gameState.swappingWithinCompletedTriad) {
+    var hand = gameState.players[0].hand;
+    var completedTriadIdx = gameState.completedTriadIndex;
+
+    // Only allow swaps within the completed triad
+    if (triadIndex !== completedTriadIdx) {
+      return; // Ignore clicks outside the completed triad
+    }
+
+    var completedTriad = hand.triads[completedTriadIdx];
+
+    // Find the KAPOW card in the completed triad
+    var kapowPos = null;
+    var positions = ['top', 'middle', 'bottom'];
+    for (var p = 0; p < positions.length; p++) {
+      var posCards = completedTriad[positions[p]];
+      if (posCards.length === 1 && posCards[0].type === 'kapow') {
+        kapowPos = positions[p];
+        break;
+      }
+    }
+
+    if (!kapowPos) {
+      // No KAPOW found (shouldn't happen), proceed to discard
+      completeWithinTriadSwap(gameState, completedTriadIdx, null);
+      return;
+    }
+
+    // Don't allow swapping the KAPOW with itself
+    if (position === kapowPos) {
+      return;
+    }
+
+    // Validate that the target position is non-empty
+    if (completedTriad[position].length === 0) {
+      return;
+    }
+
+    // Perform the swap
+    runWithTriadAnimation(0, function() {
+      var fromLabel = positions[kapowPos];
+      var toLabel = position;
+      swapKapowCard(hand, completedTriadIdx, kapowPos, completedTriadIdx, position);
+      logAction(gameState, 0, 'Swaps KAPOW! within completed triad: ' + fromLabel + ' ↔ ' + toLabel);
+
+      // Discard the completed triad after the swap
+      completeWithinTriadSwap(gameState, completedTriadIdx, position);
+    });
     return;
   }
 
