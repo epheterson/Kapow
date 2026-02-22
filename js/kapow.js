@@ -3699,7 +3699,6 @@ function renderCardHTML(card, faceDown, clickable, extraClass) {
     return '<div class="' + classes + '">' +
       '<span class="card-value-top">' + card.faceValue + '</span>' +
       '<span class="card-value-center">' + card.faceValue + '</span>' +
-      '<span class="card-type-label">Fixed</span>' +
       '<span class="card-value-bottom">' + card.faceValue + '</span></div>';
   }
 
@@ -3865,7 +3864,6 @@ function renderDiscardPile(discardPile, drawnCard, drawnFromDiscard) {
     container.innerHTML =
       '<span class="card-value-top">' + topCard.faceValue + '</span>' +
       '<span class="card-value-center">' + topCard.faceValue + '</span>' +
-      '<span class="card-type-label">Fixed</span>' +
       '<span class="card-value-bottom">' + topCard.faceValue + '</span>';
   } else if (topCard.type === 'power') {
     container.classList.add('card-power');

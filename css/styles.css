@@ -1078,12 +1078,11 @@ body::before {
    any cascade issues. Mobile overrides below.
    ============================================ */
 @media (min-width: 769px) {
-  /* Cards scale to viewport height so both hands + center strip all fit without scrolling.
-     Budget breakdown: hand headers ×2 (~48px each), center strip (~130px),
-     column gaps + padding (~24px), page padding (20px) = ~280px total overhead.
-     Clamped: min 68px, max 130px (achieved on viewports ≥1060px). */
+  /* Cards scale to viewport height so both hands + center strip fit.
+     Budget: headers ×2 (48px), center strip (120px), gaps (40px), padding (20px) = ~230px.
+     Clamped: min 68px, max 120px. */
   :root {
-    --card-height: clamp(68px, calc((100vh - 280px) / 6), 130px);
+    --card-height: clamp(68px, calc((100vh - 230px) / 6), 120px);
     --card-width: calc(var(--card-height) * 0.714);
   }
 
@@ -1102,25 +1101,23 @@ body::before {
     align-items: center;
   }
 
-  /* Flex row: piles sit directly next to the hands, centered together.
-     justify-content:center packs the three items (pile/hands/pile) without
-     stretching — piles are never pushed to viewport edges. */
+  /* Piles sit directly next to the hands — gap:12px keeps them tucked in tight.
+     justify-content:center packs everything without stretching to edges. */
   #play-area {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 20px;
-    width: 100%;
+    gap: 12px;
+    width: auto;
+    max-width: 100%;
   }
 
   #hands-column {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     flex-shrink: 0;
-    /* Natural height: content stacks tightly, no forced spreading.
-       padding-bottom clears the fixed revision footer. */
     padding-bottom: 32px;
   }
 
@@ -1136,19 +1133,20 @@ body::before {
   }
 
   #mobile-score-bar,
-  #mobile-banter {
+  #mobile-banter,
+  #mobile-version-tag {
     display: none !important;
   }
 
-  /* Center strip: align-self:stretch locks its width to the hands-column width
-     (which is determined by the fixed-width hand-grid, not by text content).
-     This prevents horizontal layout shifts when message text changes length. */
+  /* Center strip: fixed height reserves space so layout doesn't bounce.
+     align-self:stretch locks width to hands-column. */
   #center-strip {
     align-self: stretch;
     flex-shrink: 0;
     flex-wrap: wrap;
     justify-content: center;
     gap: 8px;
+    min-height: 100px;
   }
 
   #center-strip #game-message {
@@ -1156,15 +1154,16 @@ body::before {
     max-width: 100%;
     text-align: center;
     white-space: normal;
+    height: 50px;
+    min-height: 50px;
   }
 
-  /* Each control group gets its own row — layout never shifts regardless of
-     which buttons are visible or how long the message text is. */
   #center-strip #action-controls {
     flex: 0 0 100%;
     display: flex;
     justify-content: center;
     gap: 10px;
+    min-height: 32px;
   }
 
   #center-strip #btn-understand-move {
@@ -1179,16 +1178,16 @@ body::before {
    Card sizes are handled dynamically by the formula above. */
 @media (min-width: 769px) and (max-width: 1100px) {
   #play-area {
-    gap: 12px;
+    gap: 8px;
   }
 
   .hand-grid {
-    gap: 8px;
+    gap: 6px;
   }
 
   .triad-column {
     gap: 5px;
-    padding: 6px 4px;
+    padding: 5px 4px;
   }
 }
 
@@ -1279,7 +1278,7 @@ body::before {
     padding: 0;
     height: 32px;
     font-weight: 700;
-    background: rgba(0, 0, 0, 0.35);
+    background: rgba(0, 0, 0, 0.45);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border-radius: 10px;
@@ -1288,11 +1287,11 @@ body::before {
     flex-shrink: 0;
   }
 
-  /* Top bar button style (? and Score) */
+  /* Top bar button style (? and Score) — match center strip bg */
   .top-bar-btn {
     height: 32px;
-    background: rgba(255, 255, 255, 0.08);
-    border: none;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     color: rgba(255, 255, 255, 0.7);
     font-family: var(--font-body);
     font-size: 12px;
@@ -1307,6 +1306,7 @@ body::before {
     width: 36px;
     padding: 0;
     font-size: 15px;
+    border-right: none;
   }
 
   #sidebar-toggle {
@@ -1315,6 +1315,7 @@ body::before {
     color: var(--color-accent);
     letter-spacing: 0.5px;
     margin-left: auto;
+    border-left: none;
   }
 
   .top-bar-btn:active {
@@ -1345,11 +1346,16 @@ body::before {
     display: block;
   }
 
-  #mobile-score-bar .version-tag {
-    color: rgba(255, 255, 255, 0.2);
+  /* Mobile version tag — bottom center below play area */
+  #mobile-version-tag {
+    display: block;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.15);
     font-size: 9px;
     font-weight: 500;
     letter-spacing: 0.5px;
+    flex-shrink: 0;
+    padding: 2px 0;
   }
 
   #mobile-score-bar .score-label {
@@ -1425,20 +1431,23 @@ body::before {
     line-height: 1.2;
   }
 
-  /* Center strip — message + buttons stacked vertically between piles */
+  /* Center strip — message + buttons stacked vertically between piles.
+     Fixed min-height reserves space so layout doesn't bounce when
+     buttons appear/disappear or message text changes length. */
   #center-strip {
     flex-direction: column;
     gap: 3px;
     padding: 0;
     width: 100%;
+    min-height: calc(var(--card-height) * 3 + 12px);
     justify-content: center;
     align-items: center;
   }
 
   #center-strip #game-message {
     font-size: 11px;
-    height: auto;
-    min-height: auto;
+    height: 42px;
+    min-height: 42px;
     padding: 4px 8px;
     text-align: center;
     word-break: break-word;
