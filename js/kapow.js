@@ -147,9 +147,10 @@ var AI_BANTER = {
 // BUY FUNNEL — CONFIGURATION
 // ========================================
 
-// Change 'email' to 'amazon' when the Amazon listing goes live.
+// Change 'email' to 'amazon' when Stripe Payment Link is ready.
+// Then set KAPOW_BUY_URL to your Stripe link (or Amazon URL later).
 var KAPOW_BUY_MODE = 'email'; // 'email' | 'amazon'
-var KAPOW_BUY_URL = '';        // Set Amazon URL when available
+var KAPOW_BUY_URL = '';        // Set to Stripe Payment Link URL
 
 // Engagement tracking helpers (localStorage)
 function getGamesPlayed() {

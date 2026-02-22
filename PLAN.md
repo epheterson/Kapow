@@ -56,8 +56,8 @@ See `~/vault/projects/kapow/kapow-48hr-sprint.md` for full checklist.
 
 ### Eric's Track
 - [ ] Stripe account + product + Payment Link ($19.99 + $4.99 shipping)
-- [ ] Wire Payment Link into app (set `KAPOW_BUY_MODE = 'amazon'`, `KAPOW_BUY_URL` = Stripe link)
-- [ ] Create `/play` redirect page for QR code in packaging
+- [ ] Wire Payment Link into app (set `KAPOW_BUY_MODE = 'amazon'`, `KAPOW_BUY_URL` = Stripe link) — code ready, just needs the URL
+- [x] Create `/play` redirect page for QR code in packaging → `play/index.html`
 - [ ] Buy bubble mailers (local or Amazon Prime)
 - [ ] QR code → print insert cards
 - [ ] Text 20 people tonight
