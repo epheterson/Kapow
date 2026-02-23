@@ -172,6 +172,9 @@ function ctaDismissed(key) {
 function dismissCta(key) {
   try { localStorage.setItem('kapow-cta-' + key, '1'); } catch(e) {}
 }
+function hasGivenEmail() {
+  try { return !!localStorage.getItem('kapow-email'); } catch(e) { return false; }
+}
 
 // ========================================
 // STATS & DOPAMINE TRACKING
@@ -4465,10 +4468,14 @@ function init() {
     }
   } catch(e) {}
 
-  // Update footer buy link for current buy mode
+  // Update footer buy link for current buy mode (hide if email already captured)
   var footerLink = document.getElementById('footer-buy-link');
   if (footerLink) {
-    if (KAPOW_BUY_MODE === 'amazon' && KAPOW_BUY_URL) {
+    if (hasGivenEmail()) {
+      footerLink.style.display = 'none';
+      var sep = footerLink.nextElementSibling;
+      if (sep && sep.classList.contains('footer-sep')) sep.style.display = 'none';
+    } else if (KAPOW_BUY_MODE === 'amazon' && KAPOW_BUY_URL) {
       footerLink.href = KAPOW_BUY_URL;
       footerLink.target = '_blank';
       footerLink.rel = 'noopener';
@@ -4477,9 +4484,9 @@ function init() {
     // else: default onclick=showBuyModal() from HTML is correct for email mode
   }
 
-  // Build name-screen buy CTA based on engagement tier
+  // Build name-screen buy CTA based on engagement tier (skip if email already captured)
   var ctaContainer = document.getElementById('name-screen-cta');
-  if (ctaContainer) {
+  if (ctaContainer && !hasGivenEmail()) {
     var played = getGamesPlayed();
     if (played >= 3) {
       ctaContainer.innerHTML = '<div class="kapow-cta-banner">' +
@@ -4538,9 +4545,9 @@ function startGameWithName() {
   // Track engagement
   incrementGamesPlayed();
 
-  // Interstitial for engaged players (5+ games) — show once per session
+  // Interstitial for engaged players (5+ games) — skip if email already captured
   var played = getGamesPlayed();
-  if (played >= 5 && !window._kapowInterstitialShown && !ctaDismissed('interstitial')) {
+  if (played >= 5 && !window._kapowInterstitialShown && !ctaDismissed('interstitial') && !hasGivenEmail()) {
     window._kapowInterstitialShown = true;
     var gift = played >= 10 ? ' Makes a perfect gift!' : '';
     var inter = document.getElementById('kapow-interstitial');
@@ -5293,8 +5300,8 @@ function showRoundEnd() {
     html += '</p>';
   }
 
-  // Subtle buy CTA after round 3
-  if (gameState.round >= 3) {
+  // Subtle buy CTA after round 3 (skip if email already captured)
+  if (gameState.round >= 3 && !hasGivenEmail()) {
     html += '<div class="kapow-cta-round">' +
       buildBuyLink('KAPOW! is also a real card game \u2192 Get it', 'kapow-buy-link') +
       '</div>';
@@ -5368,10 +5375,12 @@ function showGameOver() {
 
   // Share + Buy CTA on game over screen
   html += '<div class="kapow-cta-gameover">' +
-    '<button class="action-btn scorecard-action-btn" onclick="shareGameResults()" style="margin-bottom:10px">Share Results</button>' +
-    '<p>Want to play with real people?</p>' +
-    buildBuyLink('Get KAPOW! \u2192', 'kapow-buy-btn kapow-buy-btn-warm') +
-    '</div>';
+    '<button class="action-btn scorecard-action-btn" onclick="shareGameResults()" style="margin-bottom:10px">Share Results</button>';
+  if (!hasGivenEmail()) {
+    html += '<p>Want to play with real people?</p>' +
+      buildBuyLink('Get KAPOW! \u2192', 'kapow-buy-btn kapow-buy-btn-warm');
+  }
+  html += '</div>';
 
   scores.innerHTML = html;
   screen.classList.remove('hidden');
