@@ -345,12 +345,10 @@ function showFeedbackModal() {
   var modal = document.getElementById('feedback-modal');
   if (!modal) return;
   // Reset form state
-  var form = document.getElementById('feedback-form');
-  if (form) {
-    form.reset();
-    form.classList.remove('hidden');
-  }
+  document.getElementById('feedback-text').value = '';
+  document.getElementById('feedback-type').value = 'suggestion';
   document.getElementById('feedback-thanks').classList.add('hidden');
+  document.querySelector('.feedback-form').classList.remove('hidden');
   modal.classList.remove('hidden');
 }
 window.showFeedbackModal = showFeedbackModal;
@@ -361,19 +359,38 @@ function hideFeedbackModal() {
 }
 window.hideFeedbackModal = hideFeedbackModal;
 
-// Called right before Google Form submits — fills hidden context field
-function prepareFeedback() {
+function sendFeedback() {
+  var type = document.getElementById('feedback-type').value;
+  var text = document.getElementById('feedback-text').value.trim();
+  if (!text) {
+    document.getElementById('feedback-text').focus();
+    return;
+  }
+
+  // Build context string
   var context = [];
-  if (playerName && playerName !== 'Player') context.push('Player: ' + playerName);
   if (gameState) {
     context.push('Round ' + gameState.round + '/' + gameState.maxRounds);
-    context.push('Score: ' + gameState.players[0].totalScore + '\u2013' + gameState.players[1].totalScore);
+    context.push('Score: ' + gameState.players[0].totalScore + '–' + gameState.players[1].totalScore);
     context.push('Phase: ' + gameState.phase);
   }
   context.push('Games played: ' + getGamesPlayed());
-  document.getElementById('feedback-context').value = context.join(' | ');
+  if (playerName && playerName !== 'Player') context.push('Player: ' + playerName);
+
+  var subject = 'KAPOW Feedback [' + type + ']';
+  var body = text + '\n\n---\n' + context.join(' | ');
+
+  // Open mailto with pre-filled content
+  var mailto = 'mailto:kapowcardgame@gmail.com' +
+    '?subject=' + encodeURIComponent(subject) +
+    '&body=' + encodeURIComponent(body);
+  window.open(mailto);
+
+  // Show thanks
+  document.querySelector('.feedback-form').classList.add('hidden');
+  document.getElementById('feedback-thanks').classList.remove('hidden');
 }
-window.prepareFeedback = prepareFeedback;
+window.sendFeedback = sendFeedback;
 
 function generateAIBanter(state, scenario) {
   var pool = AI_BANTER[scenario];
