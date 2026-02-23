@@ -222,6 +222,20 @@ body {
   font-weight: bold;
 }
 
+/* Powerset value displayed on the card */
+.powerset-value-on-card {
+  position: absolute;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #ff9800;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 /* Power Cards */
 .card-power {
   background: linear-gradient(135deg, #ffd700, #ffed4e);
@@ -375,25 +389,7 @@ body {
 }
 
 .powerset-info {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 4px;
-  background: rgba(212, 175, 55, 0.25);
-  border: 1px solid var(--color-power);
-  border-radius: 4px;
-  padding: 2px 6px;
-  margin-top: 2px;
-  font-size: 12px;
-  font-weight: bold;
-}
-
-.powerset-modifier {
-  color: var(--color-power);
-}
-
-.powerset-effective {
-  color: #fff;
+  display: none;  /* Powerset values now displayed on the card itself */
 }
 
 .position-slot .card.stacked {

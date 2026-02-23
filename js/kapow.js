@@ -3508,7 +3508,7 @@ function runWithTriadAnimation(playerIndex, handlerFn) {
   }
 }
 
-function renderCardHTML(card, faceDown, clickable) {
+function renderCardHTML(card, faceDown, clickable, powersetValue) {
   var classes = 'card';
   if (clickable) classes += ' clickable';
 
@@ -3520,11 +3520,19 @@ function renderCardHTML(card, faceDown, clickable) {
 
   if (card.type === 'fixed') {
     classes += ' card-fixed';
-    return '<div class="' + classes + '">' +
+    var html = '<div class="' + classes + '">' +
       '<span class="card-value-top">' + card.faceValue + '</span>' +
       '<span class="card-value-center">' + card.faceValue + '</span>' +
       '<span class="card-type-label">Fixed</span>' +
-      '<span class="card-value-bottom">' + card.faceValue + '</span></div>';
+      '<span class="card-value-bottom">' + card.faceValue + '</span>';
+
+    // Add powerset value on the card if present
+    if (powersetValue !== undefined && powersetValue !== null) {
+      html += '<span class="powerset-value-on-card">Powerset = ' + powersetValue + '</span>';
+    }
+
+    html += '</div>';
+    return html;
   }
 
   if (card.type === 'power') {
@@ -3621,19 +3629,19 @@ function renderHand(hand, containerId, isOpponent, clickablePositions, onClickAt
         var faceDown = isOpponent && !card.isRevealed;
         var hasPowerset = triad[pos].length > 1 && card.isRevealed;
 
+        // Calculate powerset value if it exists (to display on card)
+        var powersetValue = null;
+        if (hasPowerset) {
+          powersetValue = getPositionValue(triad[pos]);
+        }
+
         // Wrap in clickable div if needed
         if (isClickable && onClickAttr) {
           html += '<div onclick="' + onClickAttr + '(' + t + ',\'' + pos + '\')">';
-          html += renderCardHTML(card, faceDown, true);
-          if (hasPowerset) {
-            html += renderPowersetInfo(triad[pos]);
-          }
+          html += renderCardHTML(card, faceDown, true, powersetValue);
           html += '</div>';
         } else {
-          html += renderCardHTML(card, faceDown, false);
-          if (hasPowerset) {
-            html += renderPowersetInfo(triad[pos]);
-          }
+          html += renderCardHTML(card, faceDown, false, powersetValue);
         }
       }
 
