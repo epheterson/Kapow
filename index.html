@@ -56,18 +56,18 @@
     </div>
   </div>
 
-  <!-- Email Capture Modal (pre-Amazon) -->
+  <!-- Email Capture Modal (pre-sales) -->
   <div id="kapow-buy-modal" class="hidden" onclick="if(event.target===this)hideBuyModal()">
     <div class="buy-modal-content">
       <button class="buy-modal-close" onclick="hideBuyModal()">&times;</button>
       <h2>Get the Real Deck</h2>
-      <p>KAPOW! is coming to Amazon soon. Leave your email and we'll let you know the moment it's available.</p>
+      <p>KAPOW! physical decks are almost here. Leave your email and we'll let you know the moment they're available to order.</p>
       <form id="kapow-email-form" action="https://docs.google.com/forms/d/1sOwXtDq9HZpbuwt5C_7qWD6LCOEWSIreNdwBboE_S3A/formResponse" method="POST" target="kapow-email-hidden" onsubmit="try{var e=this.querySelector('input[type=email]');if(e&&e.value)localStorage.setItem('kapow-email',e.value)}catch(x){}setTimeout(function(){document.getElementById('kapow-email-thanks').classList.remove('hidden');document.getElementById('kapow-email-form').classList.add('hidden')},500)">
         <input type="email" name="entry.1116097858" placeholder="your@email.com" required class="buy-modal-input">
         <button type="submit" class="action-btn kapow-buy-btn">Notify Me</button>
       </form>
       <div id="kapow-email-thanks" class="hidden">
-        <p>You're on the list! We'll email you when KAPOW! is available.</p>
+        <p>You're on the list! We'll email you when decks are ready to ship.</p>
       </div>
       <iframe name="kapow-email-hidden" style="display:none"></iframe>
     </div>

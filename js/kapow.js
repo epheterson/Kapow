@@ -147,8 +147,8 @@ var AI_BANTER = {
 // BUY FUNNEL — CONFIGURATION
 // ========================================
 
-// Change 'email' to 'amazon' when Stripe Payment Link is ready.
-// Then set KAPOW_BUY_URL to your Stripe link (or Amazon URL later).
+// Change 'email' to 'amazon' when direct sales link is ready.
+// Then set KAPOW_BUY_URL to your Stripe link (or sales URL).
 var KAPOW_BUY_MODE = 'email'; // 'email' | 'amazon'
 var KAPOW_BUY_URL = '';        // Set to Stripe Payment Link URL
 
@@ -1362,7 +1362,7 @@ function handleFirstTurnReveal(state, triadIndex, position) {
     // Done revealing — this player can now draw a card
     state.firstTurnReveals = 0;
     state.needsFirstReveal[state.currentPlayer] = false;
-    state.message = playerTurnMessage(player.name) + '. Draw a card.';
+    state.message = playerTurnMessage(player.name) + '. Draw from either pile.';
     logHandState(state, state.currentPlayer);
     // Tutorial coaching
     if (state.currentPlayer === 0) {
@@ -1533,7 +1533,7 @@ function advanceToNextPlayer(state) {
   } else if (state.needsFirstReveal && state.needsFirstReveal[state.currentPlayer]) {
     state.message = 'Reveal 2 cards to start your turn.';
   } else {
-    state.message = playerTurnMessage(state.players[state.currentPlayer].name) + '. Draw a card.';
+    state.message = playerTurnMessage(state.players[state.currentPlayer].name) + '. Draw from either pile.';
   }
 
   // Auto-complete tutorial after enough turns
@@ -4691,9 +4691,9 @@ function getTutorialMessage(state, event, extra) {
       }
     }
     if (sevenCount >= 2) {
-      return "Two 7s! If you get one more in that column, the whole triad vanishes for 0 points. Draw a card!";
+      return "Two 7s! If you get one more in that column, the whole triad vanishes for 0 points. Draw from either pile!";
     }
-    return "Cards revealed! Now draw a card — tap the deck on the left.";
+    return "Cards revealed! Now draw a card from either pile.";
   }
 
   if (event === 'draw') {
@@ -4818,7 +4818,7 @@ function init() {
         '</div>';
     } else {
       ctaContainer.innerHTML = '<div class="kapow-cta-quiet">' +
-        buildBuyLink('KAPOW! Card Game \u2014 Available Now', 'kapow-buy-link-quiet') +
+        buildBuyLink('KAPOW! Card Game \u2014 Get Notified', 'kapow-buy-link-quiet') +
         '</div>';
     }
   }
