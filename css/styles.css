@@ -56,6 +56,7 @@ body {
   align-items: flex-start;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 /* Felt texture as a fixed background layer that bleeds past viewport edges */
@@ -81,6 +82,9 @@ body::before {
   padding: 10px 20px;
   justify-content: center;
   align-items: center;
+  /* Zoom is set dynamically by JS to shrink the whole game as a unit
+     when the viewport is too narrow. zoom (unlike transform:scale)
+     actually changes layout size, so no overflow/scroll issues. */
 }
 
 #game-container {
@@ -447,7 +451,7 @@ body::before {
   font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
-  z-index: 5;
+  z-index: 10;
 }
 
 .powerset-modifier {
@@ -944,10 +948,12 @@ body::before {
   background: rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  padding: 48px 56px;
+  padding: 40px 48px 32px;
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 24px 64px rgba(0,0,0,0.3);
+  max-width: 380px;
+  width: 90%;
 }
 
 .name-screen-content h1 {
@@ -1215,6 +1221,15 @@ body::before {
     max-width: 200px;
     margin: 0 auto;
     text-align: center;
+  }
+
+  /* Powerset badge: show above card on desktop (below gets painted over by next slot) */
+  .position-slot {
+    padding-top: 20px;
+  }
+  .powerset-info {
+    top: 0;
+    bottom: auto;
   }
 }
 
@@ -1955,7 +1970,7 @@ body::before {
   letter-spacing: 0.5px;
 }
 
-/* ---- Start Game Button — big, satisfying, inviting ---- */
+/* ---- Start Game Button — bold blue, satisfying, inviting ---- */
 #btn-start-game {
   display: block;
   width: 260px;
@@ -1964,31 +1979,31 @@ body::before {
   font-size: 20px;
   font-weight: 700;
   letter-spacing: 1px;
-  background: linear-gradient(135deg, #22c55e, #16a34a);
-  border: 2px solid #15803d;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  border: 2px solid #1e40af;
   border-radius: 14px;
   color: white;
   text-shadow: 0 1px 2px rgba(0,0,0,0.2);
-  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.3), 0 2px 4px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.3), 0 2px 4px rgba(0,0,0,0.2);
   transition: all 0.15s ease;
   cursor: pointer;
 }
 
 #btn-start-game:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(34, 197, 94, 0.4), 0 4px 8px rgba(0,0,0,0.2);
-  background: linear-gradient(135deg, #16a34a, #15803d);
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.4), 0 4px 8px rgba(0,0,0,0.2);
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
 }
 
 #btn-start-game:active {
   transform: translateY(1px);
-  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
 }
 
 /* Gentle breathing glow — the button feels alive */
 @keyframes start-glow {
-  0%, 100% { box-shadow: 0 4px 16px rgba(34, 197, 94, 0.3), 0 2px 4px rgba(0,0,0,0.2); }
-  50% { box-shadow: 0 4px 24px rgba(34, 197, 94, 0.5), 0 2px 4px rgba(0,0,0,0.2); }
+  0%, 100% { box-shadow: 0 4px 16px rgba(37, 99, 235, 0.3), 0 2px 4px rgba(0,0,0,0.2); }
+  50% { box-shadow: 0 4px 24px rgba(37, 99, 235, 0.5), 0 2px 4px rgba(0,0,0,0.2); }
 }
 
 #btn-start-game {
@@ -2027,6 +2042,13 @@ body::before {
   transform: translateY(1px);
 }
 #btn-resume-game.hidden { display: none; }
+.resume-detail {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.7;
+  margin-top: 2px;
+}
 @keyframes resume-glow {
   0%, 100% { box-shadow: 0 4px 16px rgba(245, 158, 11, 0.3), 0 2px 4px rgba(0,0,0,0.2); }
   50% { box-shadow: 0 4px 24px rgba(245, 158, 11, 0.5), 0 2px 4px rgba(0,0,0,0.2); }
@@ -2034,12 +2056,21 @@ body::before {
 
 /* When resume exists, New Game is secondary */
 #btn-resume-game:not(.hidden) ~ #btn-start-game {
-  background: linear-gradient(135deg, #475569, #334155);
-  border-color: #1e293b;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: none;
   animation: none;
-  font-size: 16px;
-  padding: 12px 24px;
+  font-size: 14px;
+  padding: 10px 20px;
+  color: rgba(255, 255, 255, 0.7);
+  text-shadow: none;
+  letter-spacing: 0;
+}
+#btn-resume-game:not(.hidden) ~ #btn-start-game:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  box-shadow: none;
+  transform: none;
 }
 
 /* ---- Dopamine Hits: Celebrations & Streaks ---- */
@@ -2130,28 +2161,28 @@ body::before {
   text-align: center;
 }
 
-/* ---- "How to Play" link on name screen ---- */
-.help-link {
-  display: block;
-  width: 260px;
-  margin: 12px auto 0;
-  padding: 10px 20px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 10px;
-  color: rgba(255, 255, 255, 0.6);
-  font-family: var(--font-body);
-  font-size: 15px;
-  font-weight: 500;
-  cursor: pointer;
-  text-decoration: none;
-  transition: all 0.2s ease;
+/* ---- Secondary links on name screen ---- */
+.name-screen-secondary {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 12px;
 }
 
-.help-link:hover {
-  color: rgba(255, 255, 255, 0.9);
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.25);
+.link-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.45);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: color 0.2s ease;
+}
+
+.link-btn:hover {
+  color: rgba(255, 255, 255, 0.8);
 }
 
 /* ---- Help "?" button (always visible during game) ---- */
@@ -2733,6 +2764,34 @@ body:has(#page-layout:not(.hidden)) #help-toggle {
   background: linear-gradient(135deg, var(--color-accent), #f59e0b);
 }
 
+/* Challenge a Friend */
+.challenge-btn.scorecard-action-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.8);
+}
+.challenge-btn.scorecard-action-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.challenge-link-subtle {
+  display: block;
+  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+  text-decoration: none;
+}
+.challenge-link-subtle:hover {
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: underline;
+}
+
+.name-screen-sep {
+  color: rgba(255, 255, 255, 0.3);
+  margin: 0 2px;
+}
+
 /* Game over CTA */
 .kapow-cta-gameover {
   margin-top: 20px;
@@ -2908,4 +2967,191 @@ body:has(#page-layout:not(.hidden)) #help-toggle {
   color: var(--color-success);
   font-weight: 600;
   font-size: 15px;
+}
+
+/* ========================================
+   LEADERBOARD
+   ======================================== */
+
+#leaderboard-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 200;
+}
+
+.leaderboard-modal-content {
+  background: linear-gradient(145deg, #0f2a1a, #1a3f2a);
+  padding: 28px 32px;
+  border-radius: 16px;
+  max-width: 420px;
+  width: 90%;
+  border: 2px solid var(--color-accent);
+  max-height: 80vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  box-shadow: 0 24px 48px rgba(0,0,0,0.5);
+  text-align: center;
+}
+
+.leaderboard-modal-content h2 {
+  font-family: var(--font-display);
+  font-size: 28px;
+  color: var(--color-accent);
+  margin-bottom: 4px;
+  letter-spacing: 2px;
+}
+
+.leaderboard-subtitle {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 16px;
+}
+
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.leaderboard-table thead th {
+  padding: 8px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.leaderboard-table tbody td {
+  padding: 8px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.lb-rank {
+  width: 40px;
+  text-align: center;
+}
+
+.lb-name {
+  text-align: left;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+}
+
+.lb-score {
+  width: 60px;
+  text-align: right;
+  color: var(--color-accent);
+  font-weight: 700;
+}
+
+.leaderboard-promo {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.leaderboard-promo p {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 10px;
+}
+
+/* Leaderboard submit confirmation */
+#leaderboard-submit-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 210;
+}
+
+.lb-submit-content {
+  background: linear-gradient(145deg, #0f2a1a, #1a3f2a);
+  padding: 28px 32px;
+  border-radius: 16px;
+  max-width: 380px;
+  width: 90%;
+  border: 2px solid var(--color-accent);
+  box-shadow: 0 24px 48px rgba(0,0,0,0.5);
+  text-align: center;
+}
+
+.lb-submit-content h2 {
+  font-family: var(--font-display);
+  font-size: 24px;
+  color: var(--color-accent);
+  margin-bottom: 4px;
+  letter-spacing: 1px;
+}
+
+.lb-submit-subtitle {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 16px;
+}
+
+.lb-submit-subtitle strong {
+  color: var(--color-accent);
+}
+
+.lb-submit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.lb-submit-note {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-bottom: 12px;
+  margin-top: -4px;
+}
+
+.lb-submit-skip {
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.lb-submit-skip:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Input shake for validation */
+@keyframes inputShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+.input-shake {
+  animation: inputShake 0.4s ease;
+  border-color: #ef4444 !important;
+}
+
+.scorecard-leaderboard-link {
+  display: block;
+  margin-top: 8px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.scorecard-leaderboard-link:hover {
+  color: rgba(255, 255, 255, 0.7);
 }

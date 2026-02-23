@@ -152,6 +152,16 @@ var AI_BANTER = {
 var KAPOW_BUY_MODE = 'email'; // 'email' | 'amazon'
 var KAPOW_BUY_URL = '';        // Set to Stripe Payment Link URL
 
+// ---- Leaderboard (Google Forms write + Apps Script read) ----
+// Fill these in after creating the Google Form + Apps Script web app
+var LEADERBOARD_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSdc5kWKkOQ2GazCLrQmm40fEQaen5f7jiVYNn9dC7RCxi19ng/formResponse';
+var LEADERBOARD_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxMG1taDyXyfyzTTxOWRt3jJTliq48x0VmMd8d4lvkSKvkJqQ8i9cjPfzIOspzXr4Fljg/exec';
+var LEADERBOARD_ENTRY_NAME = 'entry.420929999';
+var LEADERBOARD_ENTRY_EMAIL = 'entry.218690931';
+var LEADERBOARD_ENTRY_SCORE = 'entry.2013272014';
+var LEADERBOARD_ENTRY_ROUNDS = 'entry.1474295416';
+var LEADERBOARD_SUBMITTED_KEY = 'kapow-leaderboard-submitted';
+
 // Engagement tracking helpers (localStorage)
 function getGamesPlayed() {
   try { return parseInt(localStorage.getItem('kapow-games-played'), 10) || 0; } catch(e) { return 0; }
@@ -313,6 +323,7 @@ function resumeGame(save) {
   logSystem(gameState, '--- Game resumed ---');
   gameState.message = 'Game resumed! Round ' + gameState.round + ', Turn ' + gameState.turnNumber + '.';
   refreshUI();
+  requestAnimationFrame(updateGameScale);
 }
 
 // Build a buy CTA link/button. Returns HTML string.
@@ -997,10 +1008,236 @@ function shareGameResults() {
   }
 }
 
+function challengeFriend() {
+  var url = 'https://cpheterson.github.io/Kapow';
+  var text;
+
+  // Build contextual share text based on game state
+  if (gameState && gameState.phase === 'gameOver') {
+    var pScore = gameState.players[0].totalScore;
+    var kScore = gameState.players[1].totalScore;
+    var won = pScore < kScore;
+    if (won) {
+      var lines = [
+        'I beat Kai ' + pScore + '-' + kScore + ' in KAPOW! \ud83d\udca5',
+        'Think you can do better?'
+      ];
+      text = lines.join('\n');
+    } else {
+      var lines = [
+        'Kai crushed me ' + kScore + '-' + pScore + ' in KAPOW! \ud83d\ude29',
+        'Can you beat him? I couldn\u2019t\u2026'
+      ];
+      text = lines.join('\n');
+    }
+  } else if (gameState && gameState.players) {
+    // Mid-game challenge (from round end with streak)
+    var pScore = gameState.players[0].totalScore;
+    var kScore = gameState.players[1].totalScore;
+    var ahead = pScore < kScore;
+    if (ahead) {
+      text = 'I\u2019m crushing Kai ' + pScore + '-' + kScore + ' in KAPOW! \ud83d\udd25 Think you can keep up?';
+    } else {
+      text = 'Kai\u2019s got me ' + kScore + '-' + pScore + ' in KAPOW! \ud83d\ude2c Can you do better?';
+    }
+  } else {
+    // Fallback (name screen, no game context)
+    text = 'I\u2019ve been playing KAPOW! against Kai \u2014 think you can beat him?';
+  }
+
+  if (navigator.share) {
+    navigator.share({ title: 'KAPOW! Card Game', text: text, url: url }).catch(function() {});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(text + '\n' + url).then(function() {
+      var btns = document.querySelectorAll('.challenge-btn');
+      btns.forEach(function(btn) {
+        var orig = btn.textContent;
+        btn.textContent = 'Link Copied!';
+        setTimeout(function() { btn.textContent = orig; }, 1500);
+      });
+    });
+  }
+}
+
+// ========================================
+// LEADERBOARD
+// ========================================
+
+// Basic profanity screening for public leaderboard names
+var PROFANITY_PATTERNS = [
+  /\bf+u+c+k+/i, /\bs+h+i+t+/i, /\ba+s+s+h+o+l+e/i, /\bb+i+t+c+h/i,
+  /\bd+i+c+k+/i, /\bc+u+n+t+/i, /\bn+i+g+g+/i, /\bf+a+g+/i,
+  /\bp+u+s+s+y+/i, /\bc+o+c+k+/i, /\bt+w+a+t+/i, /\bw+h+o+r+e/i,
+  /\bd+a+m+n+/i, /\bp+e+n+i+s/i, /\bv+a+g+i+n+a/i, /\ba+n+u+s/i,
+  /\bp+o+r+n/i, /\bs+e+x+y/i, /\bb+o+o+b/i, /\bp+i+s+s/i,
+  /\bk+i+l+l/i, /\br+a+p+e/i, /\bn+a+z+i/i, /\bh+i+t+l+e+r/i
+];
+
+function namePassesFilter(name) {
+  var normalized = name.replace(/[\s._\-0]/g, '').replace(/1/g, 'i').replace(/3/g, 'e').replace(/4/g, 'a').replace(/5/g, 's').replace(/8/g, 'b').replace(/@/g, 'a');
+  for (var i = 0; i < PROFANITY_PATTERNS.length; i++) {
+    if (PROFANITY_PATTERNS[i].test(normalized)) return false;
+  }
+  return true;
+}
+
+function getLeaderboardBest() {
+  try {
+    var raw = localStorage.getItem(LEADERBOARD_SUBMITTED_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
+  return null; // { name, email, score }
+}
+
+// Show the leaderboard submit confirmation modal (called from showGameOver)
+function promptLeaderboardSubmit(score) {
+  if (!LEADERBOARD_FORM_URL || !LEADERBOARD_ENTRY_NAME || !LEADERBOARD_ENTRY_SCORE) return;
+
+  // Only prompt if this beats the previously submitted score
+  var prev = getLeaderboardBest();
+  if (prev && prev.score <= score) return;
+
+  var modal = document.getElementById('leaderboard-submit-modal');
+  if (!modal) return;
+
+  // Pre-fill from cached data
+  var nameInput = document.getElementById('lb-submit-name');
+  var emailInput = document.getElementById('lb-submit-email');
+  var scoreDisplay = document.getElementById('lb-submit-score');
+
+  nameInput.value = playerName || '';
+  // Try cached email from email capture or previous leaderboard submit
+  var cachedEmail = '';
+  try { cachedEmail = localStorage.getItem('kapow-email') || ''; } catch(e) {}
+  if (!cachedEmail && prev && prev.email) cachedEmail = prev.email;
+  emailInput.value = cachedEmail;
+  scoreDisplay.textContent = score;
+
+  // Store score for the confirm handler
+  modal.dataset.score = score;
+  modal.classList.remove('hidden');
+}
+
+function confirmLeaderboardSubmit() {
+  var modal = document.getElementById('leaderboard-submit-modal');
+  var nameInput = document.getElementById('lb-submit-name');
+  var emailInput = document.getElementById('lb-submit-email');
+  var score = parseInt(modal.dataset.score, 10);
+
+  var name = nameInput.value.trim();
+  var email = emailInput.value.trim();
+  if (!name || !email) {
+    if (!name) nameInput.classList.add('input-shake');
+    if (!email) emailInput.classList.add('input-shake');
+    setTimeout(function() {
+      nameInput.classList.remove('input-shake');
+      emailInput.classList.remove('input-shake');
+    }, 500);
+    return;
+  }
+
+  // Profanity check on the public display name
+  if (!namePassesFilter(name)) {
+    nameInput.classList.add('input-shake');
+    nameInput.value = '';
+    nameInput.placeholder = 'Choose a different name';
+    setTimeout(function() {
+      nameInput.classList.remove('input-shake');
+      nameInput.placeholder = 'Your name';
+    }, 2000);
+    return;
+  }
+
+  // Submit to Google Form
+  var formData = new FormData();
+  formData.append(LEADERBOARD_ENTRY_NAME, name);
+  if (LEADERBOARD_ENTRY_EMAIL) formData.append(LEADERBOARD_ENTRY_EMAIL, email);
+  formData.append(LEADERBOARD_ENTRY_SCORE, String(score));
+  if (LEADERBOARD_ENTRY_ROUNDS) formData.append(LEADERBOARD_ENTRY_ROUNDS, '10');
+
+  fetch(LEADERBOARD_FORM_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    body: formData
+  }).catch(function() {});
+
+  // Cache name and email for next time
+  try {
+    localStorage.setItem('kapow-player-name', name);
+    localStorage.setItem('kapow-email', email);
+    localStorage.setItem(LEADERBOARD_SUBMITTED_KEY, JSON.stringify({ name: name, email: email, score: score }));
+  } catch(e) {}
+
+  // Show confirmation and close
+  var form = modal.querySelector('.lb-submit-form');
+  var thanks = document.getElementById('lb-submit-thanks');
+  if (form) form.classList.add('hidden');
+  if (thanks) thanks.classList.remove('hidden');
+  setTimeout(function() {
+    modal.classList.add('hidden');
+    if (form) form.classList.remove('hidden');
+    if (thanks) thanks.classList.add('hidden');
+  }, 1800);
+}
+
+function hideLeaderboardSubmit() {
+  var modal = document.getElementById('leaderboard-submit-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function showLeaderboard() {
+  var modal = document.getElementById('leaderboard-modal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+
+  var body = document.getElementById('leaderboard-body');
+  body.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; opacity:0.5;">Loading...</td></tr>';
+
+  if (!LEADERBOARD_SCRIPT_URL) {
+    body.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; opacity:0.5;">Leaderboard coming soon!</td></tr>';
+    return;
+  }
+
+  fetch(LEADERBOARD_SCRIPT_URL)
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (!data || !data.length) {
+        body.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; opacity:0.5;">No scores yet. Be the first!</td></tr>';
+        return;
+      }
+      var html = '';
+      for (var i = 0; i < data.length; i++) {
+        var rank = i + 1;
+        var medal = rank === 1 ? '\u{1F947}' : rank === 2 ? '\u{1F948}' : rank === 3 ? '\u{1F949}' : rank;
+        var displayName = data[i].name || 'Anonymous';
+        if (!namePassesFilter(displayName)) displayName = 'Player';
+        html += '<tr>' +
+          '<td class="lb-rank">' + medal + '</td>' +
+          '<td class="lb-name">' + escapeHTML(displayName) + '</td>' +
+          '<td class="lb-score">' + data[i].score + '</td>' +
+          '</tr>';
+      }
+      body.innerHTML = html;
+    })
+    .catch(function() {
+      body.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; opacity:0.5;">Could not load leaderboard.</td></tr>';
+    });
+}
+
+function hideLeaderboard() {
+  var modal = document.getElementById('leaderboard-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
 // Expose to inline onclick handlers (IIFE-scoped otherwise)
 window.closeSidebar = closeSidebar;
 window.addGameNote = addGameNote;
 window.shareGameResults = shareGameResults;
+window.challengeFriend = challengeFriend;
+window.showLeaderboard = showLeaderboard;
+window.hideLeaderboard = hideLeaderboard;
+window.confirmLeaderboardSubmit = confirmLeaderboardSubmit;
+window.hideLeaderboardSubmit = hideLeaderboardSubmit;
 
 function startRound(state) {
   // Tutorial: use stacked deck for first-ever game's round 1
@@ -4504,6 +4741,16 @@ function init() {
     }
   }
 
+  // Challenge link for returning players on name screen
+  if (returning && getGamesPlayed() >= 1) {
+    var secondary = document.querySelector('.name-screen-secondary');
+    if (secondary) {
+      var challengeSpan = document.createElement('span');
+      challengeSpan.innerHTML = ' <span class="name-screen-sep">\u00b7</span> <button class="link-btn challenge-btn" onclick="challengeFriend()">Challenge a Friend</button>';
+      secondary.appendChild(challengeSpan);
+    }
+  }
+
   // Init mute button state
   KapowSounds.updateMuteButton();
 
@@ -4511,14 +4758,17 @@ function init() {
   var save = loadSave();
   var resumeBtn = document.getElementById('btn-resume-game');
   if (save && resumeBtn) {
-    var roundInfo = 'Round ' + save.gameState.round + ' of ' + save.gameState.maxRounds;
-    var scoreInfo = save.gameState.players[0].totalScore + ' – ' + save.gameState.players[1].totalScore;
-    resumeBtn.textContent = 'Resume Game (' + roundInfo + ', ' + scoreInfo + ')';
+    resumeBtn.innerHTML = 'Resume <span class="resume-detail">Round ' +
+      save.gameState.round + ' \u2014 ' +
+      save.gameState.players[0].totalScore + ' to ' +
+      save.gameState.players[1].totalScore + '</span>';
     resumeBtn.classList.remove('hidden');
     resumeBtn.addEventListener('click', function() {
       KapowSounds.init();
       resumeGame(save);
     });
+    // When resume exists, start button becomes "New Game"
+    document.getElementById('btn-start-game').textContent = 'New Game';
   }
 
   document.getElementById('btn-start-game').addEventListener('click', startGameWithName);
@@ -4597,6 +4847,8 @@ function proceedToGame() {
     window._kapowEventsBound = true;
   }
   refreshUI();
+  // Scale game to fit viewport after layout is visible
+  requestAnimationFrame(updateGameScale);
 }
 
 function bindGameEvents() {
@@ -5329,6 +5581,13 @@ function showRoundEnd() {
         badge.className = 'streak-badge';
         badge.textContent = stats.currentStreak + ' wins in a row!';
         scores.appendChild(badge);
+        // Challenge link after streak
+        var challengeLink = document.createElement('a');
+        challengeLink.href = '#';
+        challengeLink.className = 'challenge-btn challenge-link-subtle';
+        challengeLink.textContent = 'Challenge a friend to beat that';
+        challengeLink.onclick = function(e) { e.preventDefault(); challengeFriend(); };
+        scores.appendChild(challengeLink);
       }, 500);
     }
   } else {
@@ -5373,9 +5632,11 @@ function showGameOver() {
   }
   html += '</table>';
 
-  // Share + Buy CTA on game over screen
+  // Share + Challenge + Buy CTA on game over screen
   html += '<div class="kapow-cta-gameover">' +
-    '<button class="action-btn scorecard-action-btn" onclick="shareGameResults()" style="margin-bottom:10px">Share Results</button>';
+    '<button class="action-btn scorecard-action-btn" onclick="shareGameResults()" style="margin-bottom:10px">Share Results</button>' +
+    '<button class="action-btn scorecard-action-btn challenge-btn" onclick="challengeFriend()" style="margin-bottom:10px">Challenge a Friend</button>' +
+    '<button class="action-btn scorecard-action-btn" onclick="showLeaderboard()" style="margin-bottom:10px">Leaderboard</button>';
   if (!hasGivenEmail()) {
     html += '<p>Want to play with real people?</p>' +
       buildBuyLink('Get KAPOW! \u2192', 'kapow-buy-btn kapow-buy-btn-warm');
@@ -5389,6 +5650,9 @@ function showGameOver() {
   var playerWon = winnerIndex === 0;
   var playerScore = gameState.players[0].totalScore;
   var result = recordGameResult(playerWon, playerScore);
+
+  // Prompt leaderboard submission if this is a new best score
+  setTimeout(function() { promptLeaderboardSubmit(playerScore); }, 1200);
 
   if (playerWon) {
     KapowSounds.gameOver(true);
@@ -5812,6 +6076,32 @@ function aiStepCheckSwap() {
     refreshUI();
   }
 }
+
+// ---- Viewport scaling: shrink the whole game as a unit when window is too narrow ----
+function updateGameScale() {
+  var layout = document.getElementById('page-layout');
+  if (!layout || layout.classList.contains('hidden')) return;
+  // Only scale on desktop — mobile has its own grid layout
+  if (window.innerWidth <= 768) {
+    layout.style.zoom = '';
+    return;
+  }
+  // Reset zoom to measure natural content width
+  layout.style.zoom = '1';
+  var natural = layout.scrollWidth;
+  var available = window.innerWidth;
+  if (natural > available) {
+    layout.style.zoom = Math.max(0.55, available / natural).toFixed(4);
+  } else {
+    layout.style.zoom = '';
+  }
+}
+
+var _scaleTimer;
+window.addEventListener('resize', function() {
+  clearTimeout(_scaleTimer);
+  _scaleTimer = setTimeout(updateGameScale, 50);
+});
 
 // Start
 document.addEventListener('DOMContentLoaded', init);

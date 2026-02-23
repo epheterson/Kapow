@@ -35,8 +35,12 @@
       <p>Enter your name to begin:</p>
       <input type="text" id="player-name-input" placeholder="Your name" maxlength="20" autofocus>
       <button id="btn-resume-game" class="action-btn resume-btn hidden">Resume Game</button>
-      <button id="btn-start-game" class="action-btn">New Game</button>
-      <button id="btn-how-to-play" class="help-link" onclick="document.getElementById('help-modal').classList.remove('hidden')">How to Play</button>
+      <button id="btn-start-game" class="action-btn">Play</button>
+      <div class="name-screen-secondary">
+        <button id="btn-how-to-play" class="link-btn" onclick="document.getElementById('help-modal').classList.remove('hidden')">How to Play</button>
+        <span class="name-screen-sep">&middot;</span>
+        <button class="link-btn" onclick="showLeaderboard()">Leaderboard</button>
+      </div>
       <div id="name-screen-cta"></div>
     </div>
   </div>
@@ -220,6 +224,7 @@
       <button id="btn-share-game" class="action-btn scorecard-action-btn" onclick="event.stopPropagation();shareGameResults()">Share</button>
       <button id="btn-export-log" class="action-btn scorecard-action-btn" onclick="event.stopPropagation()">Export Log</button>
     </div>
+    <button class="link-btn scorecard-leaderboard-link" onclick="event.stopPropagation();showLeaderboard()">Leaderboard</button>
     <div class="scorecard-version">02-22-2026 v10</div>
     </div>
     <div id="ai-commentary"></div>
@@ -252,6 +257,50 @@
         <p>Thanks! Your feedback means a lot.</p>
       </div>
       <iframe name="feedback-hidden" style="display:none"></iframe>
+    </div>
+  </div>
+
+  <!-- Leaderboard Modal -->
+  <div id="leaderboard-modal" class="hidden" onclick="if(event.target===this)hideLeaderboard()">
+    <div class="leaderboard-modal-content">
+      <button class="buy-modal-close" onclick="hideLeaderboard()">&times;</button>
+      <h2>Leaderboard</h2>
+      <p class="leaderboard-subtitle">Top 25 &mdash; Lowest Score Wins</p>
+      <table class="leaderboard-table">
+        <thead>
+          <tr>
+            <th class="lb-rank">#</th>
+            <th class="lb-name">Player</th>
+            <th class="lb-score">Score</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboard-body">
+          <tr><td colspan="3" style="text-align:center; padding:20px; opacity:0.5;">Loading...</td></tr>
+        </tbody>
+      </table>
+      <div class="leaderboard-promo">
+        <p>Want to crush your friends in person?</p>
+        <a href="#" onclick="event.preventDefault();showBuyModal();hideLeaderboard()" class="kapow-buy-btn kapow-buy-btn-warm" style="display:inline-block;padding:10px 24px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">Get the Card Deck</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaderboard Submit Confirmation Modal -->
+  <div id="leaderboard-submit-modal" class="hidden" onclick="if(event.target===this)hideLeaderboardSubmit()">
+    <div class="lb-submit-content">
+      <button class="buy-modal-close" onclick="hideLeaderboardSubmit()">&times;</button>
+      <h2>Join the Leaderboard!</h2>
+      <p class="lb-submit-subtitle">Your score: <strong id="lb-submit-score">0</strong> points</p>
+      <div class="lb-submit-form">
+        <input type="text" id="lb-submit-name" placeholder="Your name" maxlength="20" class="buy-modal-input">
+        <input type="email" id="lb-submit-email" placeholder="Email (for leaderboard ID)" class="buy-modal-input">
+        <p class="lb-submit-note">Email is used to track your best score &mdash; not shared publicly.</p>
+        <button class="action-btn kapow-buy-btn" onclick="confirmLeaderboardSubmit()">Submit Score</button>
+        <button class="link-btn lb-submit-skip" onclick="hideLeaderboardSubmit()">Skip</button>
+      </div>
+      <div id="lb-submit-thanks" class="hidden">
+        <p style="color: var(--color-success); font-weight: 600;">You're on the board! &#127942;</p>
+      </div>
     </div>
   </div>
 
