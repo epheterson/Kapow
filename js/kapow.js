@@ -431,9 +431,7 @@ function createCard(type, faceValue, modifiers) {
     type: type,
     faceValue: faceValue,
     modifiers: modifiers || null,
-    isRevealed: false,
-    isFrozen: false,
-    assignedValue: null
+    isRevealed: false
   };
 }
 
@@ -496,11 +494,6 @@ function replenishFromDiscard(discardPile) {
   var cardsToShuffle = discardPile.slice(0, -1);
   cardsToShuffle.forEach(function(card) {
     card.isRevealed = false;
-    // Reset KAPOW cards back to wild when reshuffled into draw pile
-    if (card.type === 'kapow') {
-      card.isFrozen = false;
-      card.assignedValue = null;
-    }
   });
   return {
     drawPile: shuffle(cardsToShuffle),
@@ -571,21 +564,25 @@ function swapKapowCard(hand, fromTriad, fromPos, toTriad, toPos) {
   return hand;
 }
 
+// Complete the within-triad KAPOW swap phase: discard the completed triad and end turn
+function completeWithinTriadSwap(state, completedTriadIndex, newKapowPosition) {
+  state.swappingWithinCompletedTriad = false;
+  state.completedTriadIndex = -1;
+
+  // Discard the completed triad
+  checkAndDiscardTriads(state, state.currentPlayer);
+  logAction(state, state.currentPlayer, 'Discards completed triad and ends turn.');
+  logHandState(state, state.currentPlayer);
+
+  // End turn
+  endTurn(state);
+}
+
 function getPositionValue(positionCards) {
   if (positionCards.length === 0) return 0;
   var topCard = positionCards[0];
 
-  if (topCard.type === 'kapow' && !topCard.isFrozen) return 25;
-
-  if (topCard.type === 'kapow' && topCard.isFrozen) {
-    var value = topCard.assignedValue != null ? topCard.assignedValue : 0;
-    for (var i = 1; i < positionCards.length; i++) {
-      if (positionCards[i].type === 'power') {
-        value += positionCards[i].activeModifier != null ? positionCards[i].activeModifier : positionCards[i].modifiers[1];
-      }
-    }
-    return value;
-  }
+  if (topCard.type === 'kapow') return 25;
 
   var value = topCard.faceValue;
   for (var i = 1; i < positionCards.length; i++) {
@@ -608,11 +605,11 @@ function isTriadComplete(triad) {
     if (!triad[positions[i]][0].isRevealed) return false;
   }
 
-  // Check if any position has an unfrozen KAPOW! card
+  // Check if any position has a KAPOW! card
   var kapowPositions = [];
   for (var i = 0; i < positions.length; i++) {
     var card = triad[positions[i]][0];
-    if (card.type === 'kapow' && !card.isFrozen) {
+    if (card.type === 'kapow') {
       kapowPositions.push(i);
     }
   }
@@ -637,7 +634,7 @@ function tryKapowCompletion(triad, positions, kapowPositions) {
   var baseValues = [null, null, null];
   for (var i = 0; i < 3; i++) {
     var card = triad[positions[i]][0];
-    if (card.type !== 'kapow' || card.isFrozen) {
+    if (card.type !== 'kapow') {
       baseValues[i] = getPositionValue(triad[positions[i]]);
     }
   }
@@ -675,7 +672,7 @@ function findKapowAssignments(triad, positions, kapowPositions) {
   var baseValues = [null, null, null];
   for (var i = 0; i < 3; i++) {
     var card = triad[positions[i]][0];
-    if (card.type !== 'kapow' || card.isFrozen) {
+    if (card.type !== 'kapow') {
       baseValues[i] = getPositionValue(triad[positions[i]]);
     }
   }
@@ -803,6 +800,18 @@ function canSwapKapow(hand, triadIndex, position) {
   return card.type === 'kapow' && card.isRevealed;
 }
 
+// Check if a triad has a revealed KAPOW card (used to determine if within-triad swaps should be allowed)
+function hasRevealedKapow(triad) {
+  var positions = ['top', 'middle', 'bottom'];
+  for (var p = 0; p < positions.length; p++) {
+    var posCards = triad[positions[p]];
+    if (posCards.length === 1 && posCards[0].type === 'kapow' && posCards[0].isRevealed) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // ========================================
 // GAME STATE MANAGER
 // ========================================
@@ -834,6 +843,8 @@ function createGameState(playerNames) {
     aiHighlight: null,  // { type: 'draw'|'place'|'reveal'|'discard', triadIndex, position, pile }
     awaitingKapowSwap: false,  // true after place/discard when swappable KAPOWs exist
     selectedKapow: null,  // { triadIndex, position } of selected KAPOW card during swap
+    swappingWithinCompletedTriad: false,  // true when player can swap KAPOW within a just-completed triad before it's discarded
+    completedTriadIndex: -1,  // which triad is being swapped within
     turnNumber: 0,
     actionLog: [],
     aiCommentary: '',
@@ -878,11 +889,7 @@ function logHandState(state, playerIndex) {
         if (!card.isRevealed) {
           vals.push('fd');
         } else if (card.type === 'kapow') {
-          if (card.isFrozen && card.assignedValue != null) {
-            vals.push('K!=' + card.assignedValue);
-          } else {
-            vals.push('K!');
-          }
+          vals.push('K!');
         } else if (card.type === 'power' && posCards.length === 1) {
           vals.push('P' + card.faceValue);
         } else {
@@ -1306,6 +1313,8 @@ function startRound(state) {
   state.drawnFromDiscard = false;
   state.awaitingKapowSwap = false;
   state.selectedKapow = null;
+  state.swappingWithinCompletedTriad = false;
+  state.completedTriadIndex = -1;
 
   // Determine who goes first
   var firstPlayer;
@@ -1448,7 +1457,7 @@ function checkAndDiscardTriads(state, playerIndex) {
       var dCards = triad[positions[dp]];
       if (dCards.length === 0) { diagParts.push('empty'); }
       else if (!dCards[0].isRevealed) { diagParts.push('fd'); }
-      else if (dCards[0].type === 'kapow') { diagParts.push('K!' + (dCards[0].isFrozen ? '(assigned=' + dCards[0].assignedValue + ')' : '(wild)')); }
+      else if (dCards[0].type === 'kapow') { diagParts.push('K!(wild)'); }
       else { diagParts.push('' + getPositionValue(dCards)); }
     }
     var complete = isTriadComplete(triad);
@@ -1463,31 +1472,15 @@ function checkAndDiscardTriads(state, playerIndex) {
       var kapowPositions = [];
       for (var i = 0; i < positions.length; i++) {
         var card = triad[positions[i]][0];
-        if (card.type === 'kapow' && !card.isFrozen) {
+        if (card.type === 'kapow') {
           kapowPositions.push(i);
-        }
-      }
-
-      if (kapowPositions.length > 0) {
-        var assignments = findKapowAssignments(triad, positions, kapowPositions);
-        if (assignments) {
-          for (var ki in assignments) {
-            var posName = positions[ki];
-            triad[posName][0].assignedValue = assignments[ki];
-            triad[posName][0].isFrozen = true;
-          }
         }
       }
 
       // Log the triad completion
       var completionVals = [];
       for (var ci = 0; ci < positions.length; ci++) {
-        var cCard = triad[positions[ci]][0];
-        if (cCard.type === 'kapow' && cCard.assignedValue != null) {
-          completionVals.push('K!=' + cCard.assignedValue);
-        } else {
-          completionVals.push('' + getPositionValue(triad[positions[ci]]));
-        }
+        completionVals.push('' + getPositionValue(triad[positions[ci]]));
       }
       logAction(state, playerIndex, 'Triad ' + (t + 1) + ' completed! [' + completionVals.join(',') + '] - discarded');
 
@@ -1507,11 +1500,6 @@ function checkAndDiscardTriads(state, playerIndex) {
         // Then push face-up card last (so it ends up on top for this position)
         if (posCards.length > 0) {
           posCards[0].isRevealed = true;
-          // Reset KAPOW cards back to wild when discarded from a completed triad
-          if (posCards[0].type === 'kapow') {
-            posCards[0].isFrozen = false;
-            posCards[0].assignedValue = null;
-          }
           state.discardPile.push(posCards[0]);
         }
       }
@@ -1645,12 +1633,18 @@ function endTurn(state) {
 // For AI players, we skip endTurn here — the AI step sequence handles turn completion.
 function checkForKapowSwapOrEndTurn(state) {
   var player = state.players[state.currentPlayer];
+
+  // If already in within-triad swap mode, don't change state
+  if (state.swappingWithinCompletedTriad) {
+    return; // Message already set, awaiting swap input
+  }
+
   if (player.isHuman) {
     var swappable = findSwappableKapowCards(player.hand);
     // Only offer swap if at least one KAPOW has a valid target to swap with
     var hasValidSwap = false;
     for (var i = 0; i < swappable.length; i++) {
-      var targets = findSwapTargets(player.hand, swappable[i].triadIndex, swappable[i].position);
+      var targets = findSwapTargets(player.hand, swappable[i].triadIndex, swappable[i].position, -1);
       if (targets.length > 0) {
         hasValidSwap = true;
         break;
@@ -1716,6 +1710,18 @@ function handlePlaceCard(state, triadIndex, position) {
     }
   }
 
+  // Check if this placement completes a triad with a KAPOW (human player only)
+  var triad = player.hand.triads[triadIndex];
+  if (state.currentPlayer === 0 && isTriadComplete(triad) && hasRevealedKapow(triad)) {
+    // Enter within-triad swap phase BEFORE discard
+    state.swappingWithinCompletedTriad = true;
+    state.completedTriadIndex = triadIndex;
+    state.message = 'Swap KAPOW! within your completed triad, or Discard and End Turn.';
+    logHandState(state, state.currentPlayer);
+    return state;
+  }
+
+  // Normal flow: discard and check for swaps in other triads
   checkAndDiscardTriads(state, state.currentPlayer);
 
   // Tutorial coaching after placement
@@ -1771,6 +1777,19 @@ function handleAddPowerset(state, triadIndex, position, usePositiveModifier) {
 
   state.drawnCard = null;
   state.drawnFromDiscard = false;
+
+  // Check if this placement completes a triad with a KAPOW (human player only)
+  var triad_check = player.hand.triads[triadIndex];
+  if (state.currentPlayer === 0 && isTriadComplete(triad_check) && hasRevealedKapow(triad_check)) {
+    // Enter within-triad swap phase BEFORE discard
+    state.swappingWithinCompletedTriad = true;
+    state.completedTriadIndex = triadIndex;
+    state.message = 'Swap KAPOW! within your completed triad, or Discard and End Turn.';
+    logHandState(state, state.currentPlayer);
+    return state;
+  }
+
+  // Normal flow: discard and check for swaps in other triads
   checkAndDiscardTriads(state, state.currentPlayer);
 
   // Tutorial coaching for power card stacking
@@ -1813,6 +1832,19 @@ function handleCreatePowersetOnPower(state, triadIndex, position, usePositiveMod
 
   state.drawnCard = null;
   state.drawnFromDiscard = false;
+
+  // Check if this placement completes a triad with a KAPOW (human player only)
+  var triad_check = player.hand.triads[triadIndex];
+  if (state.currentPlayer === 0 && isTriadComplete(triad_check) && hasRevealedKapow(triad_check)) {
+    // Enter within-triad swap phase BEFORE discard
+    state.swappingWithinCompletedTriad = true;
+    state.completedTriadIndex = triadIndex;
+    state.message = 'Swap KAPOW! within your completed triad, or Discard and End Turn.';
+    logHandState(state, state.currentPlayer);
+    return state;
+  }
+
+  // Normal flow: discard and check for swaps in other triads
   logHandState(state, state.currentPlayer);
   checkAndDiscardTriads(state, state.currentPlayer);
   checkForKapowSwapOrEndTurn(state);
@@ -1853,11 +1885,19 @@ function findSwappableKapowCards(hand) {
 }
 
 // Find valid swap targets for a KAPOW! card (any other non-empty position, including face-down cards)
-function findSwapTargets(hand, fromTriad, fromPos) {
+// If withinTriadIndex >= 0, restrict targets to only that triad (for within-completed-triad swaps)
+function findSwapTargets(hand, fromTriad, fromPos, withinTriadIndex) {
+  if (withinTriadIndex === undefined) withinTriadIndex = -1;
   var targets = [];
   for (var t = 0; t < hand.triads.length; t++) {
+    // If restricting to within a specific triad, skip others
+    if (withinTriadIndex >= 0 && t !== withinTriadIndex) continue;
+
     var triad = hand.triads[t];
-    if (triad.isDiscarded) continue;
+    // When swapping within completed triad, DON'T skip isDiscarded
+    // (we're swapping BEFORE discard happens)
+    if (withinTriadIndex < 0 && triad.isDiscarded) continue;
+
     var positions = ['top', 'middle', 'bottom'];
     for (var p = 0; p < positions.length; p++) {
       if (t === fromTriad && positions[p] === fromPos) continue;
@@ -1961,7 +2001,7 @@ function wouldHelpCompleteTriad(hand, card) {
     var positions = ['top', 'middle', 'bottom'];
     for (var p = 0; p < positions.length; p++) {
       var origCards = triad[positions[p]];
-      triad[positions[p]] = [{ id: card.id, type: card.type, faceValue: card.faceValue, modifiers: card.modifiers, isRevealed: true, isFrozen: false, assignedValue: null }];
+      triad[positions[p]] = [{ id: card.id, type: card.type, faceValue: card.faceValue, modifiers: card.modifiers, isRevealed: true,  }];
       var complete = isTriadComplete(triad);
       triad[positions[p]] = origCards;
       if (complete) return true;
@@ -2069,7 +2109,7 @@ function buildAiExplanation(gameState, drawnCard, drawChoice, action) {
     // WHY this position — check for triad completion
     var origCards = triad[action.position];
     var newCard = { id: drawnCard.id, type: drawnCard.type, faceValue: drawnCard.faceValue,
-      modifiers: drawnCard.modifiers, isRevealed: true, isFrozen: false, assignedValue: null };
+      modifiers: drawnCard.modifiers, isRevealed: true,  };
     triad[action.position] = [newCard];
     var wouldComplete = isTriadComplete(triad);
     triad[action.position] = origCards;
@@ -2257,7 +2297,7 @@ function findTriadCompletionSpot(hand, card) {
     var positions = ['top', 'middle', 'bottom'];
     for (var p = 0; p < positions.length; p++) {
       var origCards = triad[positions[p]];
-      triad[positions[p]] = [{ id: card.id, type: card.type, faceValue: card.faceValue, modifiers: card.modifiers, isRevealed: true, isFrozen: false, assignedValue: null }];
+      triad[positions[p]] = [{ id: card.id, type: card.type, faceValue: card.faceValue, modifiers: card.modifiers, isRevealed: true,  }];
       var complete = isTriadComplete(triad);
       triad[positions[p]] = origCards;
       if (complete) return { triadIndex: t, position: positions[p] };
@@ -2329,7 +2369,7 @@ function aiDecideAction(gameState, drawnCard) {
       var origSimCards = triad[positions[p]];
       triad[positions[p]] = [{ id: drawnCard.id, type: drawnCard.type,
         faceValue: drawnCard.faceValue, modifiers: drawnCard.modifiers,
-        isRevealed: true, isFrozen: false, assignedValue: null }];
+        isRevealed: true,  }];
       var wouldComplete = isTriadComplete(triad);
       triad[positions[p]] = origSimCards; // restore
 
@@ -2484,7 +2524,7 @@ function aiFindPowersetOpportunity(hand, drawnCard) {
         modifiers: powerCard.modifiers, isRevealed: true, isFrozen: false,
         activeModifier: usePositive ? powerCard.modifiers[1] : powerCard.modifiers[0] };
       var simFace = { id: drawnCard.id, type: drawnCard.type, faceValue: drawnCard.faceValue,
-        modifiers: drawnCard.modifiers, isRevealed: true, isFrozen: false, assignedValue: null };
+        modifiers: drawnCard.modifiers, isRevealed: true,  };
       triad[positions[p]] = [simFace, simPower];
 
       var triadBonus = 0;
@@ -2538,7 +2578,7 @@ function aiAnalyzeTriad(triad) {
       result.revealedCount++;
       result.values[i] = getPositionValue(posCards);
       result.triadScore += result.values[i];
-      if (posCards[0].type === 'kapow' && !posCards[0].isFrozen) {
+      if (posCards[0].type === 'kapow') {
         result.hasUnfrozenKapow = true;
       }
     }
@@ -2563,7 +2603,7 @@ function aiAnalyzeTriad(triad) {
         for (var ki = 0; ki < 3; ki++) {
           if (ki === emptyIdx) continue;
           var kCards = triad[positions[ki]];
-          if (kCards.length > 0 && kCards[0].type === 'kapow' && !kCards[0].isFrozen) {
+          if (kCards.length > 0 && kCards[0].type === 'kapow') {
             kapowIdx = ki;
           } else {
             fixedIdx = ki;
@@ -3075,7 +3115,7 @@ function aiScorePlacement(hand, card, triadIndex, position) {
     // Check if placement completes a triad
     var origCardsFT = triad[position];
     triad[position] = [{ id: card.id, type: card.type, faceValue: card.faceValue,
-      modifiers: card.modifiers, isRevealed: true, isFrozen: false, assignedValue: null }];
+      modifiers: card.modifiers, isRevealed: true,  }];
     var completesFT = isTriadComplete(triad);
     triad[position] = origCardsFT; // restore
 
@@ -3311,7 +3351,7 @@ function aiScorePlacement(hand, card, triadIndex, position) {
   // Simulate placement and check triad completion / building
   var origCards = triad[position];
   triad[position] = [{ id: card.id, type: card.type, faceValue: card.faceValue,
-    modifiers: card.modifiers, isRevealed: true, isFrozen: false, assignedValue: null }];
+    modifiers: card.modifiers, isRevealed: true,  }];
 
   if (isTriadComplete(triad)) {
     // Completing a triad is extremely valuable.
@@ -4262,7 +4302,7 @@ function renderCardHTML(card, faceDown, clickable, extraClass) {
 
   if (card.type === 'fixed') {
     classes += ' card-fixed';
-    return '<div class="' + classes + '">' +
+    var html = '<div class="' + classes + '">' +
       '<span class="card-value-top">' + card.faceValue + '</span>' +
       '<span class="card-value-center">' + card.faceValue + '</span>' +
       '<span class="card-value-bottom">' + card.faceValue + '</span></div>';
@@ -4280,10 +4320,7 @@ function renderCardHTML(card, faceDown, clickable, extraClass) {
 
   if (card.type === 'kapow') {
     classes += ' card-kapow';
-    if (card.isFrozen) classes += ' frozen';
-    var valueText = (card.isFrozen && card.assignedValue != null)
-      ? '= ' + card.assignedValue
-      : 'Wild (0-12)';
+    var valueText = 'Wild (0-12)';
     return '<div class="' + classes + '">' +
       '<span class="kapow-text">KAPOW!</span>' +
       '<span class="kapow-value">' + valueText + '</span></div>';
@@ -4910,6 +4947,13 @@ function bindGameEvents() {
 function onEndTurn() {
   if (!gameState.players[gameState.currentPlayer].isHuman) return;
 
+  // Within-triad KAPOW swap mode: discard the completed triad and end turn
+  if (gameState.swappingWithinCompletedTriad) {
+    completeWithinTriadSwap(gameState, gameState.completedTriadIndex, null);
+    refreshUI();
+    return;
+  }
+
   // Release Card mode: put discard-drawn card back on the discard pile
   if (gameState.drawnCard && gameState.drawnFromDiscard && !gameState.awaitingKapowSwap) {
     gameState.drawnCard.isRevealed = true;
@@ -5086,7 +5130,7 @@ function refreshUI() {
   document.getElementById('player-area-header').textContent = gameState.players[0].name + "'s Hand";
   var gameMsgEl = document.getElementById('game-message');
   gameMsgEl.textContent = gameState.message;
-  if (isHumanTurn && gameState.awaitingKapowSwap) {
+  if (isHumanTurn && (gameState.awaitingKapowSwap || gameState.swappingWithinCompletedTriad)) {
     gameMsgEl.classList.add('swap-phase-message');
   } else {
     gameMsgEl.classList.remove('swap-phase-message');
@@ -5135,15 +5179,20 @@ function refreshUI() {
   document.getElementById('btn-draw-deck').disabled = !(canDraw && (phase === 'playing' || phase === 'finalTurns'));
   document.getElementById('btn-draw-discard').disabled = !(canDraw && (phase === 'playing' || phase === 'finalTurns') && gameState.discardPile.length > 0);
   document.getElementById('btn-discard').disabled = !(isHumanTurn && gameState.drawnCard !== null && !gameState.drawnFromDiscard);
-  // End Turn / Release Card button
+  // End Turn / Release Card / Discard Triad button
   var endTurnBtn = document.getElementById('btn-end-turn');
-  var isSwapPhase = isHumanTurn && gameState.awaitingKapowSwap;
-  var isReleaseMode = isHumanTurn && gameState.drawnCard && gameState.drawnFromDiscard && !isSwapPhase;
-  endTurnBtn.disabled = !(isSwapPhase || isReleaseMode);
+  var isWithinTriadSwap = isHumanTurn && gameState.swappingWithinCompletedTriad;
+  var isSwapPhase = isHumanTurn && gameState.awaitingKapowSwap && !isWithinTriadSwap;
+  var isReleaseMode = isHumanTurn && gameState.drawnCard && gameState.drawnFromDiscard && !isSwapPhase && !isWithinTriadSwap;
+  endTurnBtn.disabled = !(isSwapPhase || isReleaseMode || isWithinTriadSwap);
   if (isReleaseMode) {
     endTurnBtn.textContent = 'Release Card';
     endTurnBtn.classList.remove('end-turn-glow');
     endTurnBtn.classList.add('release-card-glow');
+  } else if (isWithinTriadSwap) {
+    endTurnBtn.textContent = 'Discard Triad and End Turn';
+    endTurnBtn.classList.add('end-turn-glow');
+    endTurnBtn.classList.remove('release-card-glow');
   } else if (isSwapPhase) {
     endTurnBtn.textContent = 'End Turn';
     endTurnBtn.classList.add('end-turn-glow');
@@ -5206,6 +5255,23 @@ function getClickablePositions() {
         if (triad[pos[p]].length > 0 && !triad[pos[p]][0].isRevealed) {
           positions.push({ triadIndex: t, position: pos[p] });
         }
+      }
+    }
+  } else if (gameState.swappingWithinCompletedTriad) {
+    // Within-triad KAPOW swap: highlight all positions in the completed triad (except the KAPOW itself)
+    var completedTriad = hand.triads[gameState.completedTriadIndex];
+    var pos = ['top', 'middle', 'bottom'];
+    var kapowPos = null;
+    // Find KAPOW position
+    for (var p = 0; p < pos.length; p++) {
+      if (completedTriad[pos[p]].length === 1 && completedTriad[pos[p]][0].type === 'kapow') {
+        kapowPos = pos[p];
+      }
+    }
+    // Add all other positions as clickable
+    for (var p = 0; p < pos.length; p++) {
+      if (pos[p] !== kapowPos) {
+        positions.push({ triadIndex: gameState.completedTriadIndex, position: pos[p] });
       }
     }
   } else if (gameState.awaitingKapowSwap && !gameState.selectedKapow) {
@@ -5285,6 +5351,65 @@ window._onCardClick = function(triadIndex, position) {
       handleFirstTurnReveal(gameState, triadIndex, position);
       refreshUI();
     }
+    return;
+  }
+
+  // Within-triad KAPOW swap phase: swap KAPOW within a just-completed triad before discard
+  if (gameState.swappingWithinCompletedTriad) {
+    var hand = gameState.players[0].hand;
+    var completedTriadIdx = gameState.completedTriadIndex;
+
+    // Only allow swaps within the completed triad
+    if (triadIndex !== completedTriadIdx) {
+      return; // Ignore clicks outside the completed triad
+    }
+
+    var completedTriad = hand.triads[completedTriadIdx];
+
+    // Find the KAPOW card in the completed triad
+    var kapowPos = null;
+    var positions = ['top', 'middle', 'bottom'];
+    for (var p = 0; p < positions.length; p++) {
+      var posCards = completedTriad[positions[p]];
+      if (posCards.length === 1 && posCards[0].type === 'kapow') {
+        kapowPos = positions[p];
+        break;
+      }
+    }
+
+    if (!kapowPos) {
+      // No KAPOW found (shouldn't happen), proceed to discard
+      completeWithinTriadSwap(gameState, completedTriadIdx, null);
+      return;
+    }
+
+    // Don't allow swapping the KAPOW with itself
+    if (position === kapowPos) {
+      return;
+    }
+
+    // Validate that the target position is non-empty
+    if (completedTriad[position].length === 0) {
+      return;
+    }
+
+    // Perform the swap
+    runWithTriadAnimation(0, function() {
+      var fromLabel = positions[kapowPos];
+      var toLabel = position;
+      swapKapowCard(hand, completedTriadIdx, kapowPos, completedTriadIdx, position);
+      logAction(gameState, 0, 'Swaps KAPOW! within completed triad: ' + fromLabel + ' ↔ ' + toLabel);
+
+      // Check if player wants to swap again (KAPOW might be in a new position now)
+      if (hasRevealedKapow(hand.triads[completedTriadIdx])) {
+        gameState.message = 'KAPOW! swapped! Swap again, or Discard Triad and End Turn.';
+        logHandState(gameState, 0);
+        refreshUI();
+      } else {
+        // No more KAPOW in the triad (shouldn't happen), proceed to discard
+        completeWithinTriadSwap(gameState, completedTriadIdx, position);
+      }
+    });
     return;
   }
 
@@ -5954,12 +6079,106 @@ function aiStepPlace(action, drewFromDiscard, drawnDesc) {
     // Animate the triad cards disappearing, then do final refresh and continue
     animateNewlyDiscardedTriads(triadsBefore, 1, function() {
       refreshUI();
-      // Step 4: Check for AI KAPOW swaps, then clear and end
-      setTimeout(function() { aiStepCheckSwap(); }, AI_DELAY);
+      // Step 4: Check for within-triad KAPOW swaps first, then cross-triad swaps
+      if (gameState.swappingWithinCompletedTriad) {
+        setTimeout(function() { aiStepWithinTriadSwap(); }, AI_DELAY);
+      } else {
+        setTimeout(function() { aiStepCheckSwap(); }, AI_DELAY);
+      }
     });
   } else {
     refreshUI();
-    // Step 4: Check for AI KAPOW swaps, then clear and end
+    // Step 4: Check for within-triad KAPOW swaps first, then cross-triad swaps
+    if (gameState.swappingWithinCompletedTriad) {
+      setTimeout(function() { aiStepWithinTriadSwap(); }, AI_DELAY);
+    } else {
+      setTimeout(function() { aiStepCheckSwap(); }, AI_DELAY);
+    }
+  }
+}
+
+// AI within-triad KAPOW swap: evaluate and perform strategic swaps within a completed triad before discard
+function aiStepWithinTriadSwap() {
+  var aiHand = gameState.players[1].hand;
+  var completedTriadIdx = gameState.completedTriadIndex;
+  var triad = aiHand.triads[completedTriadIdx];
+
+  // Initialize swap history if not present
+  if (!gameState.withinTriadSwapHistory) {
+    gameState.withinTriadSwapHistory = [];
+  }
+  var swapHistory = gameState.withinTriadSwapHistory;
+
+  // Find the KAPOW card in the completed triad
+  var kapowPos = null;
+  var positions = ['top', 'middle', 'bottom'];
+  for (var p = 0; p < positions.length; p++) {
+    if (triad[positions[p]].length === 1 && triad[positions[p]][0].type === 'kapow') {
+      kapowPos = positions[p];
+      break;
+    }
+  }
+
+  if (!kapowPos) {
+    // No KAPOW found, proceed to discard
+    gameState.withinTriadSwapHistory = null;  // Clear history
+    completeWithinTriadSwap(gameState, completedTriadIdx, null);
+    return;
+  }
+
+  // Evaluate all possible swaps and choose the best one
+  var bestSwap = null;
+  var bestScore = 0;
+
+  for (var p = 0; p < positions.length; p++) {
+    if (positions[p] === kapowPos) continue;  // Don't swap with itself
+
+    // Prevent oscillation: don't swap KAPOW back to a position it came from
+    if (swapHistory.indexOf(positions[p]) >= 0) continue;
+
+    // Evaluate this swap based on defensive positioning
+    // Strategy: prefer burying KAPOW (middle or bottom) over exposing on top
+    var swapScore = 0;
+
+    if (positions[p] === 'middle') {
+      swapScore = 10;  // Bury KAPOW in middle position
+    } else if (positions[p] === 'bottom') {
+      swapScore = 15;  // Bury KAPOW deep at bottom position
+    } else if (positions[p] === 'top') {
+      swapScore = 0;   // Don't expose KAPOW on top
+    }
+
+    // Add bonus if current position exposes KAPOW on top (avoid this)
+    if (kapowPos === 'top') {
+      swapScore += 5;  // Extra bonus for moving KAPOW away from top
+    }
+
+    if (swapScore > bestScore) {
+      bestScore = swapScore;
+      bestSwap = { from: kapowPos, to: positions[p] };
+    }
+  }
+
+  // Perform the best swap if found
+  if (bestSwap && bestScore > 0) {
+    // Add explanation to AI move description
+    var explanationText = '<span class="explain-label">Within-Triad Swap:</span> ' +
+      'AI swaps KAPOW! from ' + bestSwap.from + ' to ' + bestSwap.to +
+      ' to bury it in the discard pile (prevents you from easily drawing it).';
+    aiMoveExplanation += '<p class="explain-step">' + explanationText + '</p>';
+
+    // Perform the swap and record the previous position in history
+    swapHistory.push(bestSwap.from);
+    swapKapowCard(aiHand, completedTriadIdx, bestSwap.from, completedTriadIdx, bestSwap.to);
+    logAction(gameState, 1, 'Swaps KAPOW! within completed triad: ' + bestSwap.from + ' ↔ ' + bestSwap.to);
+
+    // Check for more beneficial swaps (same KAPOW may have moved)
+    setTimeout(function() { aiStepWithinTriadSwap(); }, AI_DELAY);
+  } else {
+    // No beneficial swap found, proceed to discard and then cross-triad swaps
+    gameState.withinTriadSwapHistory = null;  // Clear history
+    completeWithinTriadSwap(gameState, completedTriadIdx, null);
+    // After discard, check for cross-triad KAPOW swaps
     setTimeout(function() { aiStepCheckSwap(); }, AI_DELAY);
   }
 }
