@@ -991,7 +991,7 @@ function shareGameResults() {
   }
 
   lines.push('');
-  lines.push('Play KAPOW! at cpheterson.github.io/Kapow');
+  lines.push('Play KAPOW! at epheterson.github.io/Kapow');
 
   var text = lines.join('\n');
 
@@ -1009,7 +1009,7 @@ function shareGameResults() {
 }
 
 function challengeFriend() {
-  var url = 'https://cpheterson.github.io/Kapow';
+  var url = 'https://epheterson.github.io/Kapow';
   var text;
 
   // Build contextual share text based on game state
@@ -1079,6 +1079,27 @@ function namePassesFilter(name) {
     if (PROFANITY_PATTERNS[i].test(normalized)) return false;
   }
   return true;
+}
+
+// Preloaded leaderboard cache — fetched on page load so modal opens instantly
+var _leaderboardCache = null;
+var _leaderboardCacheTime = 0;
+var LEADERBOARD_CACHE_TTL = 60000; // refresh every 60s
+
+function preloadLeaderboard() {
+  if (!LEADERBOARD_SCRIPT_URL) return;
+  fetch(LEADERBOARD_SCRIPT_URL)
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      _leaderboardCache = data;
+      _leaderboardCacheTime = Date.now();
+    })
+    .catch(function() {});
+}
+
+// Kick off preload on page load
+if (LEADERBOARD_SCRIPT_URL) {
+  setTimeout(preloadLeaderboard, 1000);
 }
 
 function getLeaderboardBest() {
@@ -1185,42 +1206,62 @@ function hideLeaderboardSubmit() {
   if (modal) modal.classList.add('hidden');
 }
 
+function renderLeaderboardData(data, body) {
+  if (!data || !data.length) {
+    body.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; opacity:0.5;">No scores yet. Be the first!</td></tr>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < data.length; i++) {
+    var rank = i + 1;
+    var medal = rank === 1 ? '\u{1F947}' : rank === 2 ? '\u{1F948}' : rank === 3 ? '\u{1F949}' : rank;
+    var displayName = data[i].name || 'Anonymous';
+    if (!namePassesFilter(displayName)) displayName = 'Player';
+    html += '<tr>' +
+      '<td class="lb-rank">' + medal + '</td>' +
+      '<td class="lb-name">' + escapeHTML(displayName) + '</td>' +
+      '<td class="lb-score">' + data[i].score + '</td>' +
+      '</tr>';
+  }
+  body.innerHTML = html;
+}
+
 function showLeaderboard() {
   var modal = document.getElementById('leaderboard-modal');
   if (!modal) return;
   modal.classList.remove('hidden');
 
   var body = document.getElementById('leaderboard-body');
-  body.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; opacity:0.5;">Loading...</td></tr>';
 
   if (!LEADERBOARD_SCRIPT_URL) {
     body.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; opacity:0.5;">Leaderboard coming soon!</td></tr>';
     return;
   }
 
+  // Use cache if fresh enough — instant open
+  if (_leaderboardCache && (Date.now() - _leaderboardCacheTime < LEADERBOARD_CACHE_TTL)) {
+    renderLeaderboardData(_leaderboardCache, body);
+    return;
+  }
+
+  // Show cached data immediately if stale, then refresh
+  if (_leaderboardCache) {
+    renderLeaderboardData(_leaderboardCache, body);
+  } else {
+    body.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; opacity:0.5;">Loading...</td></tr>';
+  }
+
   fetch(LEADERBOARD_SCRIPT_URL)
     .then(function(res) { return res.json(); })
     .then(function(data) {
-      if (!data || !data.length) {
-        body.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; opacity:0.5;">No scores yet. Be the first!</td></tr>';
-        return;
-      }
-      var html = '';
-      for (var i = 0; i < data.length; i++) {
-        var rank = i + 1;
-        var medal = rank === 1 ? '\u{1F947}' : rank === 2 ? '\u{1F948}' : rank === 3 ? '\u{1F949}' : rank;
-        var displayName = data[i].name || 'Anonymous';
-        if (!namePassesFilter(displayName)) displayName = 'Player';
-        html += '<tr>' +
-          '<td class="lb-rank">' + medal + '</td>' +
-          '<td class="lb-name">' + escapeHTML(displayName) + '</td>' +
-          '<td class="lb-score">' + data[i].score + '</td>' +
-          '</tr>';
-      }
-      body.innerHTML = html;
+      _leaderboardCache = data;
+      _leaderboardCacheTime = Date.now();
+      renderLeaderboardData(data, body);
     })
     .catch(function() {
-      body.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; opacity:0.5;">Could not load leaderboard.</td></tr>';
+      if (!_leaderboardCache) {
+        body.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; opacity:0.5;">Could not load leaderboard.</td></tr>';
+      }
     });
 }
 
@@ -5519,9 +5560,19 @@ function showRoundEnd() {
   var title = document.getElementById('round-end-title');
   var scores = document.getElementById('round-scores');
 
-  title.textContent = 'Round ' + gameState.round + ' Complete!';
+  var playerRound = gameState.players[0].roundScores[gameState.players[0].roundScores.length - 1];
+  var kaiRound = gameState.players[1].roundScores[gameState.players[1].roundScores.length - 1];
+  var playerWon = playerRound < kaiRound;
+  var tied = playerRound === kaiRound;
 
-  var html = '<table style="margin: 0 auto; text-align: left;">';
+  title.textContent = 'Round ' + gameState.round;
+
+  // Big winner announcement
+  var winnerClass = tied ? 'tied' : (playerWon ? 'player-won' : 'kai-won');
+  var winnerText = tied ? 'Tied Round!' : (playerWon ? 'You won this round!' : escapeHTML(gameState.players[1].name) + ' won this round');
+  var html = '<div class="round-winner-line ' + winnerClass + '">' + winnerText + '</div>';
+
+  html += '<table style="margin: 0 auto; text-align: left;">';
   for (var i = 0; i < gameState.players.length; i++) {
     var player = gameState.players[i];
     var roundScore = player.roundScores[player.roundScores.length - 1];
@@ -5531,6 +5582,15 @@ function showRoundEnd() {
       '<td style="padding: 4px 12px;">Total: ' + player.totalScore + '</td></tr>';
   }
   html += '</table>';
+
+  // Running standings
+  var playerLeading = gameState.players[0].totalScore < gameState.players[1].totalScore;
+  var totalTied = gameState.players[0].totalScore === gameState.players[1].totalScore;
+  var gap = Math.abs(gameState.players[0].totalScore - gameState.players[1].totalScore);
+  if (!totalTied) {
+    var leaderName = playerLeading ? 'You\'re' : escapeHTML(gameState.players[1].name) + ' is';
+    html += '<p style="margin-top:12px; font-size:15px; font-weight:600; opacity:0.9;">' + leaderName + ' leading by ' + gap + ' point' + (gap !== 1 ? 's' : '') + '</p>';
+  }
 
   if (gameState.firstOutPlayer !== null) {
     var fop = gameState.firstOutPlayer;
@@ -5562,12 +5622,8 @@ function showRoundEnd() {
   scores.innerHTML = html;
   screen.classList.remove('hidden');
 
-  // Dopamine: detect round winner and celebrate
-  var playerRoundScore = gameState.players[0].roundScores[gameState.players[0].roundScores.length - 1];
-  var kaiRoundScore = gameState.players[1].roundScores[gameState.players[1].roundScores.length - 1];
-  var playerWonRound = playerRoundScore < kaiRoundScore;
-
-  if (playerWonRound) {
+  // Dopamine: celebrate round winner
+  if (playerWon) {
     var stats = recordRoundWin();
     KapowSounds.roundWin();
     // Flash the screen green briefly

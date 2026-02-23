@@ -154,7 +154,7 @@ body::before {
 .triad-column {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
   padding: 8px 6px;
   border-radius: 10px;
@@ -402,12 +402,21 @@ body::before {
 /* Card Clickable Highlight */
 .card.clickable {
   border-color: var(--color-accent) !important;
-  animation: pulse 1.5s ease-in-out infinite;
+  animation: pulse 1.4s ease-in-out infinite;
 }
 
 @keyframes pulse {
   0%, 100% { box-shadow: var(--shadow-card); }
   50% { box-shadow: var(--shadow-card-selected); }
+}
+
+/* Sync all interactive glows to the same cycle */
+.card.clickable,
+.drawn-highlight .card,
+.pile.discard-target .card,
+.pile.discard-target .empty-pile {
+  animation-duration: 1.4s;
+  animation-timing-function: ease-in-out;
 }
 
 /* Empty Pile */
@@ -424,6 +433,7 @@ body::before {
   position: relative;
   min-height: var(--card-height);
   min-width: var(--card-width);
+  padding-top: 16px;
 }
 
 .pos-label {
@@ -437,22 +447,23 @@ body::before {
 
 .powerset-info {
   position: absolute;
-  bottom: -18px;
+  top: -16px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 4px;
-  background: rgba(212, 146, 10, 0.25);
-  border: 1px solid rgba(212, 146, 10, 0.5);
+  background: rgba(212, 146, 10, 0.4);
+  border: 1px solid rgba(212, 146, 10, 0.7);
   border-radius: 6px;
-  padding: 1px 8px;
+  padding: 2px 8px;
   font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
   z-index: 10;
 }
+
 
 .powerset-modifier {
   color: var(--color-power);
@@ -580,6 +591,8 @@ body::before {
   justify-content: center;
   transition: all 0.3s ease;
   border: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+  z-index: 5;
 }
 
 #game-message.swap-phase-message {
@@ -847,17 +860,49 @@ body::before {
 
 .round-end-content h2 {
   font-family: var(--font-display);
-  font-size: 28px;
-  margin-bottom: 16px;
+  font-size: 36px;
+  margin-bottom: 20px;
   color: var(--color-accent);
   letter-spacing: 2px;
 }
+
+/* Winner announcement styling */
+.round-winner-line {
+  font-size: 22px;
+  font-weight: 800;
+  margin-bottom: 16px;
+  letter-spacing: 0.5px;
+}
+.round-winner-line.player-won { color: #22c55e; }
+.round-winner-line.kai-won { color: #ef4444; }
+.round-winner-line.tied { color: var(--color-accent); }
 
 #final-scores,
 #round-scores {
   margin: 16px 0;
   font-size: 17px;
   line-height: 1.8;
+}
+
+/* Big satisfying Next Round button */
+#btn-next-round {
+  font-size: 20px;
+  font-weight: 800;
+  padding: 16px 48px;
+  margin-top: 20px;
+  background: var(--color-accent);
+  color: #1a3f2a;
+  border-radius: 14px;
+  border: none;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 4px 20px rgba(251, 191, 36, 0.4);
+}
+#btn-next-round:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 28px rgba(251, 191, 36, 0.6);
 }
 
 /* ---- Scorecard Sidebar ---- */
@@ -1223,13 +1268,9 @@ body::before {
     text-align: center;
   }
 
-  /* Powerset badge: show above card on desktop (below gets painted over by next slot) */
+  /* Powerset badge: already top-positioned globally, just fine-tune desktop spacing */
   .position-slot {
     padding-top: 20px;
-  }
-  .powerset-info {
-    top: 0;
-    bottom: auto;
   }
 }
 
