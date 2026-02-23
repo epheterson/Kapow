@@ -2,15 +2,6 @@
 
 ## Version History
 
-### 02-22-2026 v11
-**Buy funnel copy + price anchoring for DTC launch.**
-- Email modal: updated copy from "coming to Amazon soon" → "available now, $19.99 + $4.99 shipping, we'll send the checkout link"
-- Modal submit: "Notify Me" → "Send Me the Link"; thanks message updated
-- All CTA buttons now show price: "Get KAPOW! — $19.99 →" instead of generic "Get KAPOW! →"
-- Interstitial: shows play count + "$19.99 + shipping" in copy; button shows "$19.99" price
-- Game over CTA: "real cards + travel case" added to description
-- SW: kapow-v34
-
 ### 02-21-2026 v7
 **Fix desktop piles tucked in: replaced CSS grid with flex+center on play-area.**
 - Root cause: `grid-template-columns: auto 1fr auto` made the center column claim full viewport width, pushing piles to screen edges
