@@ -2,6 +2,17 @@
 
 ## Version History
 
+### 02-23-2026 v2
+**Implemented AI within-triad KAPOW swaps with oscillation prevention.**
+- AI now performs strategic within-triad KAPOW swaps when completing triads
+- Evaluates all three positions and selects optimal burial depth (bottom > middle > top)
+- Adds bonus for moving KAPOW away from exposed top position
+- Prevents oscillation by tracking swap history (never swaps KAPOW back to previous position)
+- Includes detailed explanation in "Understand AI's Move" modal showing swap strategy
+- AI recursively swaps KAPOW deeper until no better position is available
+- After within-triad swaps complete, proceeds to discard triad and cross-triad KAPOW swaps
+- Commit: (pending)
+
 ### 02-23-2026 v1
 **New session begins on 02-23-2026.**
 - Version counter resets to v1 for new date
@@ -81,4 +92,4 @@ When making changes that warrant a version bump:
 
 ---
 
-## Latest Version: 02-23-2026 v1
+## Latest Version: 02-23-2026 v2

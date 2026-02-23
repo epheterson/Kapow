@@ -4670,12 +4670,106 @@ function aiStepPlace(action, drewFromDiscard, drawnDesc) {
     // Animate the triad cards disappearing, then do final refresh and continue
     animateNewlyDiscardedTriads(triadsBefore, 1, function() {
       refreshUI();
-      // Step 4: Check for AI KAPOW swaps, then clear and end
-      setTimeout(function() { aiStepCheckSwap(); }, AI_DELAY);
+      // Step 4: Check for within-triad KAPOW swaps first, then cross-triad swaps
+      if (gameState.swappingWithinCompletedTriad) {
+        setTimeout(function() { aiStepWithinTriadSwap(); }, AI_DELAY);
+      } else {
+        setTimeout(function() { aiStepCheckSwap(); }, AI_DELAY);
+      }
     });
   } else {
     refreshUI();
-    // Step 4: Check for AI KAPOW swaps, then clear and end
+    // Step 4: Check for within-triad KAPOW swaps first, then cross-triad swaps
+    if (gameState.swappingWithinCompletedTriad) {
+      setTimeout(function() { aiStepWithinTriadSwap(); }, AI_DELAY);
+    } else {
+      setTimeout(function() { aiStepCheckSwap(); }, AI_DELAY);
+    }
+  }
+}
+
+// AI within-triad KAPOW swap: evaluate and perform strategic swaps within a completed triad before discard
+function aiStepWithinTriadSwap() {
+  var aiHand = gameState.players[1].hand;
+  var completedTriadIdx = gameState.completedTriadIndex;
+  var triad = aiHand.triads[completedTriadIdx];
+
+  // Initialize swap history if not present
+  if (!gameState.withinTriadSwapHistory) {
+    gameState.withinTriadSwapHistory = [];
+  }
+  var swapHistory = gameState.withinTriadSwapHistory;
+
+  // Find the KAPOW card in the completed triad
+  var kapowPos = null;
+  var positions = ['top', 'middle', 'bottom'];
+  for (var p = 0; p < positions.length; p++) {
+    if (triad[positions[p]].length === 1 && triad[positions[p]][0].type === 'kapow') {
+      kapowPos = positions[p];
+      break;
+    }
+  }
+
+  if (!kapowPos) {
+    // No KAPOW found, proceed to discard
+    gameState.withinTriadSwapHistory = null;  // Clear history
+    completeWithinTriadSwap(gameState, completedTriadIdx, null);
+    return;
+  }
+
+  // Evaluate all possible swaps and choose the best one
+  var bestSwap = null;
+  var bestScore = 0;
+
+  for (var p = 0; p < positions.length; p++) {
+    if (positions[p] === kapowPos) continue;  // Don't swap with itself
+
+    // Prevent oscillation: don't swap KAPOW back to a position it came from
+    if (swapHistory.indexOf(positions[p]) >= 0) continue;
+
+    // Evaluate this swap based on defensive positioning
+    // Strategy: prefer burying KAPOW (middle or bottom) over exposing on top
+    var swapScore = 0;
+
+    if (positions[p] === 'middle') {
+      swapScore = 10;  // Bury KAPOW in middle position
+    } else if (positions[p] === 'bottom') {
+      swapScore = 15;  // Bury KAPOW deep at bottom position
+    } else if (positions[p] === 'top') {
+      swapScore = 0;   // Don't expose KAPOW on top
+    }
+
+    // Add bonus if current position exposes KAPOW on top (avoid this)
+    if (kapowPos === 'top') {
+      swapScore += 5;  // Extra bonus for moving KAPOW away from top
+    }
+
+    if (swapScore > bestScore) {
+      bestScore = swapScore;
+      bestSwap = { from: kapowPos, to: positions[p] };
+    }
+  }
+
+  // Perform the best swap if found
+  if (bestSwap && bestScore > 0) {
+    // Add explanation to AI move description
+    var explanationText = '<span class="explain-label">Within-Triad Swap:</span> ' +
+      'AI swaps KAPOW! from ' + bestSwap.from + ' to ' + bestSwap.to +
+      ' to bury it in the discard pile (prevents you from easily drawing it).';
+    aiMoveExplanation += '<p class="explain-step">' + explanationText + '</p>';
+
+    // Perform the swap and record the previous position in history
+    swapHistory.push(bestSwap.from);
+    swapKapowCard(aiHand, completedTriadIdx, bestSwap.from, completedTriadIdx, bestSwap.to);
+    logAction(gameState, 1, 'Swaps KAPOW! within completed triad: ' + bestSwap.from + ' ↔ ' + bestSwap.to);
+
+    // Check for more beneficial swaps (same KAPOW may have moved)
+    setTimeout(function() { aiStepWithinTriadSwap(); }, AI_DELAY);
+  } else {
+    // No beneficial swap found, proceed to discard and then cross-triad swaps
+    gameState.withinTriadSwapHistory = null;  // Clear history
+    completeWithinTriadSwap(gameState, completedTriadIdx, null);
+    // After discard, check for cross-triad KAPOW swaps
     setTimeout(function() { aiStepCheckSwap(); }, AI_DELAY);
   }
 }
