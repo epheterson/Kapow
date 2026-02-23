@@ -50,8 +50,8 @@ card to modify that position's value. Stacked cards form a
 KAPOW! CARDS (6):
 Wild cards (value 0-12). Worth +25 points until used in a
 triad. Once placed, you can swap their position with any
-other card until they're frozen in a completed triad or
-powerset.
+other card. When a KAPOW! card completes a triad, it locks
+in place and can no longer be moved.
 
 
 == TAB: TURNS ==
@@ -110,7 +110,8 @@ Lowest total score wins.
 - Don't go out too early — if Kai has a lower score, yours
   gets doubled
 - KAPOW! cards are flexible — swap them around to where
-  they're needed most before they get frozen
+  they're needed most, but once they complete a triad they
+  lock in place
 
 --- Use "Understand Kai's Move" ---
 After Kai plays, click the "Understand Kai's Move" button
