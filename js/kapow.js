@@ -342,6 +342,7 @@ function buildBuyLink(text, cssClass) {
 function showBuyModal() {
   var modal = document.getElementById('kapow-buy-modal');
   if (modal) modal.classList.remove('hidden');
+  if (typeof trackEvent === 'function') trackEvent('buy_cta_click');
 }
 // Expose to onclick handlers
 window.showBuyModal = showBuyModal;
@@ -405,6 +406,7 @@ function prepareFeedback() {
   if (emailEl && emailEl.value) {
     try { localStorage.setItem('kapow-email', emailEl.value); } catch(e) {}
   }
+  if (typeof trackEvent === 'function') trackEvent('feedback_submit');
 }
 window.prepareFeedback = prepareFeedback;
 
@@ -1195,6 +1197,7 @@ function confirmLeaderboardSubmit() {
     localStorage.setItem('kapow-email', email);
     localStorage.setItem(LEADERBOARD_SUBMITTED_KEY, JSON.stringify({ name: name, email: email, score: score }));
   } catch(e) {}
+  if (typeof trackEvent === 'function') trackEvent('email_submit', { source: 'leaderboard' });
 
   // Show confirmation and close
   var form = modal.querySelector('.lb-submit-form');
@@ -4562,6 +4565,7 @@ function shouldStartTutorial() {
 function completeTutorial() {
   tutorialActive = false;
   try { localStorage.setItem('kapow-tutorial-done', '1'); } catch(e) {}
+  if (typeof trackEvent === 'function') trackEvent('tutorial_complete');
 }
 
 // Exposed globally for the "Replay Tutorial" button in How to Play
@@ -4868,9 +4872,10 @@ function startGameWithName() {
 
   // Track engagement
   incrementGamesPlayed();
+  var played = getGamesPlayed();
+  if (typeof trackEvent === 'function') trackEvent('game_start', { games_played: played });
 
   // Interstitial for engaged players (5+ games) — skip if email already captured
-  var played = getGamesPlayed();
   if (played >= 5 && !window._kapowInterstitialShown && !ctaDismissed('interstitial') && !hasGivenEmail()) {
     window._kapowInterstitialShown = true;
     var gift = played >= 10 ? ' Makes a perfect gift!' : '';
@@ -5686,6 +5691,10 @@ function showRoundEnd() {
   var playerWon = playerRound < kaiRound;
   var tied = playerRound === kaiRound;
 
+  if (typeof trackEvent === 'function') trackEvent('round_complete', {
+    round: gameState.round, player_score: playerRound, kai_score: kaiRound, player_won: playerWon
+  });
+
   title.textContent = 'Round ' + gameState.round;
 
   // Big winner announcement
@@ -5784,6 +5793,11 @@ function showGameOver() {
   }
 
   title.textContent = gameState.players[winnerIndex].name + ' Wins!';
+
+  if (typeof trackEvent === 'function') trackEvent('game_over', {
+    player_total: gameState.players[0].totalScore, kai_total: gameState.players[1].totalScore,
+    player_won: winnerIndex === 0, rounds_played: gameState.round
+  });
 
   var html = '<table style="margin: 0 auto; text-align: left;">';
   for (var i = 0; i < gameState.players.length; i++) {
