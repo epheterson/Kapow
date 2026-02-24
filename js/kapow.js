@@ -558,9 +558,12 @@ function addToPowerset(hand, triadIndex, position, powerCard) {
 function swapKapowCard(hand, fromTriad, fromPos, toTriad, toPos) {
   var sourceCards = hand.triads[fromTriad][fromPos];
   var targetCards = hand.triads[toTriad][toPos];
-  if (sourceCards.length !== 1) return hand;
+  // Source must have at least one card, and the top card must be KAPOW
+  if (sourceCards.length === 0) return hand;
   var kapow = sourceCards[0];
   if (kapow.type !== 'kapow') return hand;
+  // KAPOW can be solo or in a powerset (with Power modifier underneath)
+  // Swap the entire position contents: KAPOW solo or KAPOW+modifier together
   hand.triads[fromTriad][fromPos] = targetCards;
   hand.triads[toTriad][toPos] = sourceCards;
   return hand;
@@ -792,7 +795,10 @@ function getWinner(players) {
 // RULES ENGINE
 // ========================================
 
-// KAPOW is free to swap until used in a completed triad (which gets discarded immediately)
+// KAPOW swap rules:
+// 1. Before triad completion: free to swap with any card/powerset anywhere in hand (cross-triad)
+// 2. After triad completion: free to swap, but ONLY within the completed triad (within-triad)
+// 3. After discard: KAPOW goes to discard pile and is no longer available for swaps
 function canSwapKapow(hand, triadIndex, position) {
   var triad = hand.triads[triadIndex];
   if (!triad || triad.isDiscarded) return false;
@@ -803,11 +809,14 @@ function canSwapKapow(hand, triadIndex, position) {
 }
 
 // Check if a triad has a revealed KAPOW card (used to determine if within-triad swaps should be allowed)
+// KAPOW can be solo or in a powerset with a Power modifier underneath
 function hasRevealedKapow(triad) {
   var positions = ['top', 'middle', 'bottom'];
   for (var p = 0; p < positions.length; p++) {
     var posCards = triad[positions[p]];
-    if (posCards.length === 1 && posCards[0].type === 'kapow' && posCards[0].isRevealed) {
+    // Check if position has any cards AND the top card is a revealed KAPOW
+    // (KAPOW can be solo or in a powerset with a Power modifier underneath)
+    if (posCards.length > 0 && posCards[0].type === 'kapow' && posCards[0].isRevealed) {
       return true;
     }
   }
@@ -1729,13 +1738,19 @@ function handlePlaceCard(state, triadIndex, position) {
     }
   }
 
-  // Check if this placement completes a triad with a KAPOW (human player only)
+  // Check if this placement completes a triad with a KAPOW
   var triad = player.hand.triads[triadIndex];
-  if (state.currentPlayer === 0 && isTriadComplete(triad) && hasRevealedKapow(triad)) {
-    // Enter within-triad swap phase BEFORE discard
+  var isComplete = isTriadComplete(triad);
+  var hasKapow = hasRevealedKapow(triad);
+  logAction(state, state.currentPlayer, 'DEBUG: Triad ' + (triadIndex + 1) + ' complete=' + isComplete + ' hasKapow=' + hasKapow);
+  if (isComplete && hasKapow) {
+    // Enter within-triad swap phase BEFORE discard (applies to both human and AI)
     state.swappingWithinCompletedTriad = true;
     state.completedTriadIndex = triadIndex;
-    state.message = 'Swap KAPOW! within your completed triad, or Discard and End Turn.';
+    if (state.currentPlayer === 0) {
+      state.message = 'Swap KAPOW! within your completed triad, or Discard and End Turn.';
+    }
+    logAction(state, state.currentPlayer, 'DEBUG: Entering within-triad swap phase');
     logHandState(state, state.currentPlayer);
     return state;
   }
@@ -1797,13 +1812,15 @@ function handleAddPowerset(state, triadIndex, position, usePositiveModifier) {
   state.drawnCard = null;
   state.drawnFromDiscard = false;
 
-  // Check if this placement completes a triad with a KAPOW (human player only)
+  // Check if this placement completes a triad with a KAPOW
   var triad_check = player.hand.triads[triadIndex];
-  if (state.currentPlayer === 0 && isTriadComplete(triad_check) && hasRevealedKapow(triad_check)) {
-    // Enter within-triad swap phase BEFORE discard
+  if (isTriadComplete(triad_check) && hasRevealedKapow(triad_check)) {
+    // Enter within-triad swap phase BEFORE discard (applies to both human and AI)
     state.swappingWithinCompletedTriad = true;
     state.completedTriadIndex = triadIndex;
-    state.message = 'Swap KAPOW! within your completed triad, or Discard and End Turn.';
+    if (state.currentPlayer === 0) {
+      state.message = 'Swap KAPOW! within your completed triad, or Discard and End Turn.';
+    }
     logHandState(state, state.currentPlayer);
     return state;
   }
@@ -1852,13 +1869,15 @@ function handleCreatePowersetOnPower(state, triadIndex, position, usePositiveMod
   state.drawnCard = null;
   state.drawnFromDiscard = false;
 
-  // Check if this placement completes a triad with a KAPOW (human player only)
+  // Check if this placement completes a triad with a KAPOW
   var triad_check = player.hand.triads[triadIndex];
-  if (state.currentPlayer === 0 && isTriadComplete(triad_check) && hasRevealedKapow(triad_check)) {
-    // Enter within-triad swap phase BEFORE discard
+  if (isTriadComplete(triad_check) && hasRevealedKapow(triad_check)) {
+    // Enter within-triad swap phase BEFORE discard (applies to both human and AI)
     state.swappingWithinCompletedTriad = true;
     state.completedTriadIndex = triadIndex;
-    state.message = 'Swap KAPOW! within your completed triad, or Discard and End Turn.';
+    if (state.currentPlayer === 0) {
+      state.message = 'Swap KAPOW! within your completed triad, or Discard and End Turn.';
+    }
     logHandState(state, state.currentPlayer);
     return state;
   }
@@ -1885,7 +1904,9 @@ function handleDiscard(state) {
   return state;
 }
 
-// Find all swappable (revealed) KAPOW! cards in a hand — KAPOW is free to move until used in a completed triad
+// Find all swappable (revealed) KAPOW! cards in a hand
+// Before triad completion: KAPOW is free to move anywhere (cross-triad swaps)
+// After triad completion: KAPOW is free to move only within the completed triad (within-triad swaps)
 function findSwappableKapowCards(hand) {
   var kapows = [];
   for (var t = 0; t < hand.triads.length; t++) {
@@ -2449,6 +2470,15 @@ function aiDecideAction(gameState, drawnCard) {
         score: ps,
         reason: reason
       });
+
+      // DEBUG: Log each placement candidate for analysis
+      var drawnCardDesc = drawnCard.type === 'power' ? 'P' + drawnCard.faceValue :
+                          (drawnCard.type === 'kapow' ? 'KAPOW' : drawnCard.faceValue);
+      var posCardsDesc = triad[positions[p]].length > 0 ?
+                         (triad[positions[p]][0].type === 'power' ? 'P' + triad[positions[p]][0].faceValue :
+                          triad[positions[p]][0].type === 'kapow' ? 'KAPOW' :
+                          triad[positions[p]][0].faceValue) : 'fd';
+      logAction(gameState, 1, 'DEBUG: T' + (t+1) + ' ' + positions[p] + ' (' + posCardsDesc + '\u2192' + drawnCardDesc + ') score=' + ps);
     }
   }
 
@@ -2502,6 +2532,19 @@ function aiDecideAction(gameState, drawnCard) {
     lastActionReason = 'no valid moves';
     return { type: 'discard' };
   }
+
+  // DEBUG: Log all candidates with scores for analysis
+  var debugMsg = 'CANDIDATES: ';
+  for (var ci = 0; ci < candidates.length; ci++) {
+    debugMsg += candidates[ci].action.type === 'replace' ?
+      ('T' + (candidates[ci].action.triadIndex+1) + '-' + candidates[ci].action.position + ':' + candidates[ci].score) :
+      ('discard:' + candidates[ci].score);
+    if (ci < candidates.length - 1) debugMsg += ' | ';
+  }
+  debugMsg += ' \u2192 CHOSEN: ' + (bestCandidate.action.type === 'replace' ?
+    ('T' + (bestCandidate.action.triadIndex+1) + '-' + bestCandidate.action.position) :
+    'discard');
+  logAction(gameState, 1, debugMsg);
 
   lastActionReason = bestCandidate.reason;
   return bestCandidate.action;
@@ -6132,10 +6175,12 @@ function aiStepWithinTriadSwap() {
   var swapHistory = gameState.withinTriadSwapHistory;
 
   // Find the KAPOW card in the completed triad
+  // KAPOW can be solo or in a powerset with a Power modifier underneath
   var kapowPos = null;
   var positions = ['top', 'middle', 'bottom'];
   for (var p = 0; p < positions.length; p++) {
-    if (triad[positions[p]].length === 1 && triad[positions[p]][0].type === 'kapow') {
+    var posCards = triad[positions[p]];
+    if (posCards.length > 0 && posCards[0].type === 'kapow') {
       kapowPos = positions[p];
       break;
     }

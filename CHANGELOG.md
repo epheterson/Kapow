@@ -2,6 +2,13 @@
 
 ## Version History
 
+### 02-24-2026 v5
+**Dad's AI improvements (PR #1).**
+- AI can now perform within-triad KAPOW swaps (previously human-only)
+- KAPOW detection handles powersets (KAPOW + Power modifier pairs), not just solo KAPOWs
+- Added debug logging for AI decision candidates and chosen actions
+- Updated `swapKapowCard`, `hasRevealedKapow`, `aiStepWithinTriadSwap` for powerset awareness
+
 ### 02-24-2026 v4
 **Desktop layout fix.**
 - Fixed desktop vertical overflow — replaced 146px center strip with compact inline control bar (zero scroll at 820px)
@@ -247,4 +254,4 @@
 - Pre-commit hook auto-bumps version on every commit
 - `scorecard-version` div in `index.html` is the source of truth
 
-## Latest Version: 02-24-2026 v6
+## Latest Version: 02-24-2026 v7
