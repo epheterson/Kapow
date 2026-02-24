@@ -92,39 +92,19 @@ Kai evaluates every possible action each turn:
 
 ## Development
 
-No build tools needed. Serve locally:
+No build tools. No bundler. Auto-deploys to GitHub Pages on push to `main`.
 
 ```bash
-python3 -m http.server 8000
-# Open http://localhost:8000
+git clone https://github.com/epheterson/Kapow.git
+cd Kapow
+npm install                          # Test runner (Vitest)
+git config core.hooksPath hooks      # Pre-commit: tests + auto-version bump
+python3 -m http.server 8000          # http://localhost:8000
 ```
 
-### Project Structure
+133 tests across 7 modules. Pre-commit hook runs them automatically.
 
-```
-Kapow/
-├── index.html              # Entry point
-├── manifest.json           # PWA manifest
-├── sw.js                   # Service worker (offline caching)
-├── CHANGELOG.md            # Changelog (date-versioned)
-├── css/
-│   └── styles.css          # All styles
-├── js/
-│   ├── kapow.js            # Production bundle (~5,100 lines)
-│   ├── sound.js            # Web Audio API synthesized sounds
-│   └── *.js                # Modular files (reference only, not loaded)
-└── icons/
-    ├── icon-512.png        # PWA icon
-    ├── icon-192.png        # PWA icon
-    └── apple-touch-icon.png
-```
-
-### Known Issues
-
-| Severity | Issue |
-|----------|-------|
-| Medium | AI `reveals` array not bounds-checked — edge case crash if <2 unrevealed cards |
-| Low | Round-end screen re-rendered on every `refreshUI()` during scoring phase |
+See **[CONTRIBUTING.md](CONTRIBUTING.md)** for full dev guide — architecture, AI, testing, versioning, deployment.
 
 ---
 
