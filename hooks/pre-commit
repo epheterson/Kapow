@@ -55,8 +55,10 @@ CHANGELOG="$ROOT/CHANGELOG.md"
 if [ -f "$CHANGELOG" ]; then
   if ! git diff --cached --name-only | grep -q "CHANGELOG.md"; then
     echo ""
-    echo "WARNING: CHANGELOG.md not updated. Consider adding an entry."
+    echo "FAIL: CHANGELOG.md not updated. Add an entry before committing."
+    echo "  (skip with: git commit --no-verify)"
     echo ""
+    exit 1
   fi
 fi
 

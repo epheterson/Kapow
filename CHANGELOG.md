@@ -2,6 +2,31 @@
 
 ## Version History
 
+### 02-24-2026 v1
+**Bug fixes + hook enforcement.**
+- Fixed powerset log display — stacked power modifiers now show all values (was only showing first)
+- Fixed name screen button centering — How to Play / Leaderboard were left of center on desktop
+- Changelog check in pre-commit hook now blocks commit (was warn-only)
+- Added app icon / favicon to tech debt tracker
+
+### 02-23-2026 v7
+**GA4 analytics.**
+- Google Analytics 4 wired up with 7 custom events (game_start, tutorial_complete, round_complete, game_over, buy_cta_click, email_submit, feedback_submit)
+
+### 02-23-2026 v6
+**Security fixes.**
+- XSS fix: game notes escaped via `escapeHTML()` before innerHTML
+- Leaderboard score injection fix: `parseInt()` on external data
+- Service worker no longer intercepts POST requests (Google Form submissions)
+
+### 02-23-2026 v5
+**Developer docs.**
+- Added CONTRIBUTING.md — dev setup, architecture, deployment, versioning guide
+
+### 02-23-2026 v4
+**Full changelog backfill.**
+- Reconstructed complete project history from initial commit (02-08) through current
+
 ### 02-23-2026 v3
 **Test suite + git hooks infrastructure.**
 - Added Vitest test suite: 133 tests across 7 modules (deck, hand, triad, scoring, rules, gameState, ai)
@@ -209,4 +234,4 @@
 - Pre-commit hook auto-bumps version on every commit
 - `scorecard-version` div in `index.html` is the source of truth
 
-## Latest Version: 02-23-2026 v8
+## Latest Version: 02-24-2026 v1
