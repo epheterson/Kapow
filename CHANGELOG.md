@@ -268,10 +268,48 @@
 
 ---
 
+## Chuck's AI Development Log
+
+*Detailed root-cause analysis and AI debugging notes from Chuck's fork (cpheterson/Kapow). Version numbers reference his fork's versioning, not the main repo.*
+
+### 02-24: KAPOW Swap Completion Strategy
+- **v1:** AI/human within-triad swap now validated via `isTriadComplete()` simulation before committing. Sets always valid; runs can break (e.g., K with middle when mid=0 ascending). Human gets "That swap would break the triad!" message on invalid targets.
+- **v2:** Rewrote `aiStepWithinTriadSwap` — exactly one swap, no loop. Prefers bottom (deepest burial), falls back to middle. Removed `withinTriadSwapHistory`. Exempted top-position KAPOW penalty when placement completes triad.
+- **v3:** Fixed human swap hanging — `hasRevealedKapow` always true after swap. Now checks new position: if buried (mid/bot) → auto-discard; if still top → one more attempt.
+- **v4:** Fixed AI not taking turn after human swap+discard. `refreshUI()` was before `endTurn()` — AI trigger check saw human's turn. Swapped order.
+- **v5:** KAPOW-aware `aiCountFutureCompletions` — value 25 (KAPOW placeholder) now tested against all 13 possible values. [5,K,11] was scoring 0 paths (penalty -20); now correctly finds paths like [9,10,11].
+- **v6:** Missing `refreshUI()` in else branch of `completeWithinTriadSwap` — same class of bug as v4.
+- **v7:** `aiTurnInProgress` never cleared after within-triad swap path (bypasses `aiStepCheckSwap`). Guard stuck true → next AI turn never starts.
+- **v8:** Discard safety formula `safety*0.05-2` had tiny range (-2 to +3). Card completing opponent's triad (safety=25) scored -0.75, barely negative. New formula: `(safety-50)*0.2-2` with extra penalty below 30.
+- **v9:** Power card modifier (+/-) values overlapping powerset label. Fixed with absolute positioning.
+- **v10:** One-step KAPOW-swap lookahead in `aiScorePlacement` — if placement + one swap completes triad, awards +80 + existingPoints (vs +100 for direct completion).
+- **v11:** Steepened discard safety: two-segment formula. Above 50: mild positive `(s-50)*0.15-2`. Below 50: steep negative `-(50-s)*0.4-2`, extra steepness below 40.
+- **v12:** Fixed KAPOW-swap completion bonus including placed card's value (25) in existingPoints, inflating swap path over direct completion. Now skips placed slot.
+
+### 02-23: Within-Triad Swaps & Powerset Detection
+- **v1:** New session begins, carrying forward 02-21 changes.
+- **v2:** AI within-triad KAPOW swaps with oscillation prevention (swap history tracking, depth preference bottom>middle>top).
+- **v3:** Reverted incorrect Power card scoring (briefly treated as 0 points instead of face value).
+- **v4:** AI within-triad swaps weren't triggering — gated to `currentPlayer === 0` (human only). Enabled for both players in three handlers.
+- **v5:** KAPOW in powersets [KAPOW, P1] not detected — `length === 1` check missed pairs. Changed to `length > 0`.
+- **v6:** Powerset display fix (Power-on-Power shows value), KAPOW burial bonus (+8 per nearby KAPOW, +6 for top position).
+
+### 02-21: Powerset Display & Frozen KAPOW Cleanup
+- **v1:** Within-triad KAPOW swaps — new swap phase after placement, before triad discard. New helpers: `hasRevealedKapow()`, `completeWithinTriadSwap()`.
+- **v2:** Removed deprecated `isFrozen`/`assignedValue` from KAPOW cards. Simplified all checks.
+- **v3:** Powerset value displayed on card face ("Powerset = X") instead of below card.
+
+### 02-20: Initial AI Refinements
+- **v1:** Software revision footer added, VERSION_LOG.md created.
+- **v2:** Discard safety scaling factor 0.4→1.0 for opponent-completion cards.
+- **v3:** AI explanation avoids nonsensical future completion paths when going out.
+
+---
+
 ## Version Numbering Convention
 
 - Format: `MM-DD-YYYY vN` where N resets to 1 each new date
 - Pre-commit hook auto-bumps version on every commit
 - `scorecard-version` div in `index.html` is the source of truth
 
-## Latest Version: 02-24-2026 v11
+## Latest Version: 02-24-2026 v12
