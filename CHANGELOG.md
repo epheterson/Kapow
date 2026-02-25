@@ -2,6 +2,9 @@
 
 ## Version History
 
+### 02-24-2026 v9
+**Added Dad's VERSION_LOG.md** — his detailed version history tracking AI changes and bug fixes.
+
 ### 02-24-2026 v8
 **Dad's AI strategy overhaul (batch 2).**
 - Steeper discard safety formula (two-segment) — prevents AI gifting triad-completing cards
@@ -268,4 +271,4 @@
 - Pre-commit hook auto-bumps version on every commit
 - `scorecard-version` div in `index.html` is the source of truth
 
-## Latest Version: 02-24-2026 v8
+## Latest Version: 02-24-2026 v10
