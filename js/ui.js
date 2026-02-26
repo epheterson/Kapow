@@ -131,20 +131,18 @@ export function renderDiscardPile(discardPile) {
   if (topCard.type === 'fixed') {
     container.classList.add('card-fixed');
     container.innerHTML = `
-      <span class="card-value-top">${topCard.faceValue}</span>
-      <span class="card-value-center">${topCard.faceValue}</span>
       <span class="card-type-label">Fixed</span>
-      <span class="card-value-bottom">${topCard.faceValue}</span>
+      <span class="card-value-center">${topCard.faceValue}</span>
     `;
   } else if (topCard.type === 'power') {
     container.classList.add('card-power');
     container.innerHTML = `
-      <span class="card-type-label">Power</span>
-      <span class="card-power-face-value">${topCard.faceValue}</span>
-      <div class="card-power-modifiers">
+      <div class="card-power-header">
         <span class="modifier-negative">${topCard.modifiers[0]}</span>
+        <span class="card-type-label">Power</span>
         <span class="modifier-positive">+${topCard.modifiers[1]}</span>
       </div>
+      <span class="card-power-face-value">${topCard.faceValue}</span>
     `;
   } else if (topCard.type === 'kapow') {
     container.classList.add('card-kapow');

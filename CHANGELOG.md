@@ -20,6 +20,9 @@
 - Round-end screen: shows winner announcement ("You win the round!" / "Kai wins!" / "Tie!") with colored text
 - Telemetry: on by default (was opt-in, blocking all data collection)
 - Privacy: replaced consent banner with footer/scorecard "Privacy" link → modal with opt-out button
+- Fix: discard pile cards now render with same layout as hand cards (was still using old corner-value style)
+- Fix: removed "=" prefix from powerset effective value display
+- Fix: clear Kai's card highlight when round ends (green highlight no longer persists into round-end screen)
 
 **v16 [Eric]** Telemetry system, analytics dashboard, scoreboard UX fix.
 - Game telemetry (telemetry.js): anonymous stats collection via Google Form → Sheet pipeline, player consent flow, abandonment tracking, GA4 events
