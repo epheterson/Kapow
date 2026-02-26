@@ -62,7 +62,7 @@
     <div class="privacy-modal-content">
       <button class="buy-modal-close" onclick="document.getElementById('privacy-modal').classList.add('hidden')">&times;</button>
       <h2>Privacy</h2>
-      <p>We collect game stats (scores, rounds, session length) to improve the game. Email is only stored if you voluntarily provide it via feedback or leaderboard.</p>
+      <p>We collect game stats to improve the game, and email if provided.</p>
       <button class="link-btn" style="margin-top:12px;opacity:0.6;" onclick="KapowTelemetry.revokeConsent();this.textContent='Done — opted out';this.disabled=true">Opt out of stats</button>
     </div>
   </div>
@@ -257,7 +257,7 @@
         <a href="#" onclick="event.preventDefault();event.stopPropagation();document.getElementById('privacy-modal').classList.remove('hidden')">Privacy</a>
       </div>
     </div>
-    <div class="scorecard-version">02-25-2026 v25</div>
+    <div class="scorecard-version">02-25-2026 v27</div>
     </div>
     <div id="ai-commentary"></div>
   </div>
