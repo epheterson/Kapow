@@ -31,6 +31,9 @@
 - Mobile score bar: visual separators between groups
 - Desktop footer hidden on short viewports (< 700px height) to prevent overlap with cards
 - iOS landscape: enabled vertical scrolling so game is accessible in landscape orientation
+- Power card face value moved to bottom of card (balances against Power header at top, saves vertical space)
+- Privacy modal: honest about email collection (stored if voluntarily provided via feedback/leaderboard)
+- Pre-commit hook: version bump now compares against origin/main to avoid conflicts between contributors
 
 **v16 [Eric]** Telemetry system, analytics dashboard, scoreboard UX fix.
 - Game telemetry (telemetry.js): anonymous stats collection via Google Form → Sheet pipeline, player consent flow, abandonment tracking, GA4 events

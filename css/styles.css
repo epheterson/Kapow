@@ -285,6 +285,8 @@ body::before {
 
 .card-power .powerset-total {
   color: #92400e;
+  margin-top: -2px;
+  padding-bottom: 4px;
 }
 
 /* Powerset label styling override */
@@ -332,7 +334,10 @@ body::before {
   font-weight: 700;
   font-family: var(--font-body);
   letter-spacing: -1px;
+  margin-top: auto;
+  padding-bottom: 6px;
 }
+
 
 .modifier-positive {
   color: #166534;
@@ -1826,6 +1831,7 @@ body::before {
 
   .card-power-face-value {
     font-size: clamp(16px, 3svh, 24px);
+    padding-bottom: 3px;
   }
 
   .card-power-modifiers {
