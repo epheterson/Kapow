@@ -34,7 +34,7 @@
 - Power card face value moved to bottom of card (balances against Power header at top, saves vertical space)
 - Privacy modal: concise, honest text about data collection
 - Pre-commit hook: version bump now compares against origin/main to avoid conflicts between contributors
-- Fixed card face value moved to bottom (matches Power card positioning, better visual balance)
+- Fix: revert Fixed card face value back to centered (bottom positioning was worse)
 - Power card face value padding increased for more breathing room
 - "Understand Kai's Move" button toned down (no longer bright blue pulsing glow, matches other button style)
 - Desktop footer hidden at viewport heights under 920px to prevent overlapping cards

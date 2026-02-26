@@ -260,8 +260,6 @@ body::before {
   line-height: 1;
   font-family: var(--font-body);
   letter-spacing: -1px;
-  margin-top: auto;
-  padding-bottom: 12px;
 }
 
 .card-type-label {
@@ -1793,7 +1791,6 @@ body::before {
 
   .card-value-center {
     font-size: clamp(16px, 3svh, 24px);
-    padding-bottom: 6px;
   }
 
   .card-value-top {
