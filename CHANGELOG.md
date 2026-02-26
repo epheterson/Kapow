@@ -23,6 +23,14 @@
 - Fix: discard pile cards now render with same layout as hand cards (was still using old corner-value style)
 - Fix: removed "=" prefix from powerset effective value display
 - Fix: clear Kai's card highlight when round ends (green highlight no longer persists into round-end screen)
+- Fix: power card modifiers clipping on iOS (clamped font size, overflow hidden)
+- Font fallback: Impact/Arial Black before Bangers loads (closer match than default cursive)
+- Footer reordered: Feedback · Privacy · Get the Card Game
+- Privacy modal text simplified
+- Scorecard Share/Leaderboard row matched to full width
+- Mobile score bar: visual separators between groups
+- Desktop footer hidden on short viewports (< 700px height) to prevent overlap with cards
+- iOS landscape: enabled vertical scrolling so game is accessible in landscape orientation
 
 **v16 [Eric]** Telemetry system, analytics dashboard, scoreboard UX fix.
 - Game telemetry (telemetry.js): anonymous stats collection via Google Form → Sheet pipeline, player consent flow, abandonment tracking, GA4 events

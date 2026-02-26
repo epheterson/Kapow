@@ -26,7 +26,7 @@
   --color-success: #22c55e;
 
   /* Typography */
-  --font-display: 'Bangers', cursive;
+  --font-display: 'Bangers', Impact, 'Arial Black', sans-serif;
   --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 
   /* Shadows */
@@ -309,13 +309,14 @@ body::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   position: absolute;
-  top: 6px;
-  left: 0;
-  right: 0;
-  font-size: 14px;
+  top: 4px;
+  left: 2px;
+  right: 2px;
+  font-size: clamp(10px, 1.8svh, 14px);
   font-weight: 700;
+  overflow: hidden;
 }
 
 .card-power .card-type-label {
@@ -1549,6 +1550,13 @@ body::before {
     height: 100%;
   }
 
+  .score-bar-sep {
+    width: 1px;
+    height: 14px;
+    background: rgba(255, 255, 255, 0.15);
+    flex-shrink: 0;
+  }
+
   /* Ensure all score-bar spans vertically center */
   #mobile-score-bar > span {
     display: flex;
@@ -2053,6 +2061,7 @@ body::before {
 .scorecard-actions-row {
   display: flex;
   gap: 6px;
+  width: 100%;
 }
 
 .scorecard-actions-row .scorecard-action-btn {
@@ -2708,6 +2717,13 @@ body:has(#page-layout:not(.hidden)) #help-toggle {
 @media (min-width: 769px) {
   #revision-footer {
     display: block;
+  }
+}
+
+/* Hide footer when viewport is too short to avoid overlapping cards */
+@media (min-width: 769px) and (max-height: 700px) {
+  #revision-footer {
+    display: none;
   }
 }
 
@@ -3414,3 +3430,24 @@ body:has(#page-layout:not(.hidden)) #help-toggle {
 }
 
 /* scorecard-leaderboard-link removed — leaderboard now in actions row */
+
+/* ========================================
+   MOBILE LANDSCAPE — allow scrolling
+   ======================================== */
+@media (max-width: 768px) and (orientation: landscape) {
+  html, body {
+    overflow: auto;
+    height: auto;
+  }
+
+  #page-layout {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  #game-container {
+    overflow: visible;
+    min-height: auto;
+  }
+}
