@@ -254,16 +254,8 @@ body::before {
   color: var(--color-fixed);
 }
 
-.card-value-top {
-  position: absolute;
-  top: 6px;
-  left: 8px;
-  font-size: 13px;
-  font-weight: 700;
-}
-
 .card-value-center {
-  font-size: 38px;
+  font-size: 42px;
   font-weight: 700;
   line-height: 1;
   font-family: var(--font-body);
@@ -277,30 +269,33 @@ body::before {
   letter-spacing: 1px;
   color: #9ca3af;
   position: absolute;
-  bottom: 6px;
-  right: 7px;
-}
-
-.card-value-bottom {
-  position: absolute;
-  bottom: 6px;
-  left: 8px;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-/* Powerset value displayed on the card */
-.powerset-value-on-card {
-  position: absolute;
-  bottom: 30px;
+  top: 6px;
   left: 50%;
   transform: translateX(-50%);
+}
+
+/* Powerset effective value displayed on the card */
+.powerset-total {
+  font-size: 20px;
+  font-weight: 700;
   color: #dc143c;
-  font-size: 14px;
-  font-weight: bold;
-  text-align: center;
-  white-space: nowrap;
-  pointer-events: none;
+  line-height: 1;
+  margin-top: 2px;
+}
+
+.card-power .powerset-total {
+  color: #92400e;
+}
+
+/* Powerset label styling override */
+.has-powerset .card-type-label {
+  color: #dc143c;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.card-power.has-powerset .card-type-label {
+  color: #92400e;
 }
 
 /* Power Cards — golden premium feel */
@@ -310,30 +305,32 @@ body::before {
   color: #1c1917;
 }
 
+.card-power-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  position: absolute;
+  top: 6px;
+  left: 0;
+  right: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .card-power .card-type-label {
   color: #92400e;
   font-weight: 700;
   font-style: normal;
   position: static;
-  margin-bottom: 2px;
+  transform: none;
 }
 
 .card-power-face-value {
-  font-size: 34px;
+  font-size: 42px;
   font-weight: 700;
   font-family: var(--font-body);
   letter-spacing: -1px;
-}
-
-.card-power-modifiers {
-  display: flex;
-  justify-content: space-between;
-  width: 80%;
-  font-size: 16px;
-  font-weight: bold;
-  position: absolute;
-  bottom: 6px;
-  left: 10%;
 }
 
 .modifier-positive {
@@ -1213,9 +1210,10 @@ body::before {
   #page-layout {
     display: flex;
     flex-direction: row;
-    align-items: flex-start;
+    align-items: center;
     gap: 20px;
     padding: 4px 20px;
+    min-height: 100dvh;
   }
 
   #game-container {
@@ -1262,6 +1260,9 @@ body::before {
     flex-direction: column;
     min-width: 200px;
     padding-left: 8px;
+    align-self: flex-start;
+    position: sticky;
+    top: 10px;
   }
 
   #mobile-score-bar,
@@ -1269,83 +1270,83 @@ body::before {
     display: none !important;
   }
 
-  /* --- Center strip: compact control row between hands ---
-     Instead of collapsing to nothing and overlaying corners,
-     keep it as a thin horizontal bar with message + buttons inline. */
+  /* --- Center strip: stacked message above buttons ---
+     Fixed width prevents hands column from bouncing when text changes. */
   #center-strip {
-    align-self: stretch;
     flex-shrink: 0;
     display: flex;
-    flex-wrap: nowrap;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 12px;
+    gap: 4px;
     min-height: unset;
-    padding: 3px 0;
+    padding: 4px 0;
+    width: 320px;
+    max-width: 320px;
+    min-width: 320px;
   }
 
-  /* Game message: compact inline pill in center strip */
+  /* Game message: fixed-width block above buttons */
   #center-strip #game-message {
-    flex: 1 1 0;
-    min-width: 0;
-    max-width: none;
+    width: 100%;
     height: auto;
     min-height: unset;
-    padding: 4px 12px;
-    font-size: 11px;
+    padding: 6px 14px;
+    font-size: 14px;
     line-height: 1.3;
     text-align: center;
-    white-space: nowrap;
+    white-space: normal;
+    word-break: break-word;
     overflow: hidden;
-    text-overflow: ellipsis;
     background: rgba(0, 0, 0, 0.3);
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 6px;
-    opacity: 0.9;
+    opacity: 1;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    transform: translateZ(0);
   }
 
-  /* Long tutorial messages wrap instead of truncating */
-  #center-strip #game-message.tutorial-message,
-  #center-strip #game-message.swap-phase-message {
-    white-space: normal;
-    text-overflow: clip;
-    line-height: 1.25;
-  }
-
-  /* Action controls: compact inline beside message */
+  /* Action controls: centered row below message */
   #center-strip #action-controls {
-    flex: 0 0 auto;
     display: flex;
     gap: 6px;
     min-height: unset;
     align-items: center;
+    justify-content: center;
   }
 
   #center-strip #action-controls .action-btn {
-    padding: 4px 12px;
-    font-size: 11px;
+    padding: 5px 14px;
+    font-size: 13px;
     border-radius: 6px;
   }
 
-  /* "Understand Kai's Move": compact pill at end of strip */
+  /* "Understand Kai's Move": below action buttons */
   #center-strip #btn-understand-move {
-    flex: 0 0 auto;
-    max-width: none;
-    padding: 4px 10px;
-    font-size: 10px;
+    padding: 4px 12px;
+    font-size: 12px;
     border-radius: 6px;
     white-space: nowrap;
     margin: 0;
   }
 
-  /* Shrink End Turn glow style to match compact strip */
+  /* End Turn glow style */
   #center-strip .action-btn.end-turn-glow,
   #center-strip .action-btn.release-card-glow {
-    font-size: 11px;
-    padding: 4px 14px;
+    font-size: 13px;
+    padding: 5px 16px;
   }
 
-  /* Powerset badge sits at bottom of card globally — no extra spacing needed */
+  .pile-label {
+    font-size: 12px;
+  }
+
+  /* GPU compositing for crisp card text */
+  .card {
+    transform: translateZ(0);
+    will-change: transform;
+  }
 }
 
 /* Mid-range desktop: tighten gaps so 4 triads fit side by side comfortably.
@@ -1612,28 +1613,45 @@ body::before {
   }
 
   /* Center strip — message + buttons stacked vertically between piles.
-     Height matches the pile columns (1 card + label) so the middle
-     grid row stays consistent. No more bouncing. */
+     Fixed height matches the pile columns so the grid row never shifts.
+     Overflow hidden prevents button growth from pushing hands around. */
   #center-strip {
     flex-direction: column;
     gap: 3px;
-    padding: 0;
+    padding: 4px 0;
     width: 100%;
-    min-height: var(--card-height);
+    height: calc(var(--card-height) + 20px);
+    min-height: calc(var(--card-height) + 20px);
+    max-height: calc(var(--card-height) + 20px);
     justify-content: center;
     align-items: center;
+    overflow: hidden;
   }
 
   #center-strip #game-message {
     font-size: 11px;
     height: 32px;
     min-height: 32px;
+    max-height: 32px;
     padding: 4px 8px;
     text-align: center;
     word-break: break-word;
     line-height: 1.3;
     max-width: 100%;
     overflow: hidden;
+  }
+
+  /* Lock button sizes on mobile to prevent layout shift */
+  #center-strip #action-controls .action-btn {
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+
+  #center-strip .action-btn.end-turn-glow,
+  #center-strip .action-btn.release-card-glow {
+    font-size: 11px;
+    padding: 4px 12px;
+    border-width: 1px;
   }
 
   /* Cards and grid — breathing room between triads */
@@ -2336,29 +2354,30 @@ body::before {
 #help-toggle {
   display: none;
   position: fixed;
-  top: calc(env(safe-area-inset-top, 8px) + 8px);
+  top: 16px;
   left: 16px;
   z-index: 190;
-  width: 32px;
-  height: 32px;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.7);
+  width: 36px;
+  height: 36px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.8);
   font-family: var(--font-body);
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   border-radius: 50%;
   cursor: pointer;
   line-height: 1;
   padding: 0;
   transition: all 0.15s ease;
+  justify-content: center;
+  align-items: center;
 }
 
 #help-toggle:hover {
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.6);
   color: white;
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 /* Show help button when game is active */

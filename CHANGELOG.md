@@ -6,6 +6,19 @@
 
 ### 02-25-2026
 
+**v17 [Eric]** Desktop UX & card redesign — Chuck's feedback.
+- Card redesign: removed physical-card corner values from Fixed cards; center-top type label + large center value
+- Power cards: modifiers now flank "Power" label in header row instead of bottom position
+- Powerset on-card display: top card shows "Powerset" label + effective value (= N) below face value
+- Desktop font sizes: game message 11px → 14px, action buttons → 13px, pile labels → 12px
+- Fuzzy text fix: removed backdrop-filter blur on desktop game message, added GPU compositing hints
+- Center strip: message stacked above buttons (not inline), fixed 320px width prevents card deck bouncing
+- Desktop play area vertically centered in viewport
+- Help button (?) restyled: larger, cleaner border, removed backdrop blur
+- AI → Kai: all user-facing game messages and "Understand Move" explanations now say "Kai" instead of "AI"
+- Mobile center strip: fixed height prevents button growth from shifting card hands
+- Round-end screen: shows winner announcement ("You win the round!" / "Kai wins!" / "Tie!") with colored text
+
 **v16 [Eric]** Telemetry system, analytics dashboard, scoreboard UX fix.
 - Game telemetry (telemetry.js): anonymous stats collection via Google Form → Sheet pipeline, player consent flow, abandonment tracking, GA4 events
 - Analytics dashboard (dashboard.html): live data via Apps Script API, Chart.js charts, 8 stat cards, recent games table, manual import feature

@@ -1359,20 +1359,20 @@ function buildAiExplanation(gameState, drawnCard, drawChoice, action) {
 
   // DRAW explanation
   if (drawChoice === 'discard') {
-    lines.push('<p class="explain-step"><span class="explain-label">Draw:</span> AI chose to draw ' + drawnDesc + ' from the discard pile rather than taking an unknown card from the draw pile.');
+    lines.push('<p class="explain-step"><span class="explain-label">Draw:</span> Kai chose to draw' + drawnDesc + ' from the discard pile rather than taking an unknown card from the draw pile.');
     if (lastDrawReason === 'completes a triad') {
-      lines.push('This card directly completes one of AI\'s triads, eliminating those points.</p>');
+      lines.push('This card directly completes one of Kai\'s triads, eliminating those points.</p>');
     } else if (lastDrawReason === 'strong placement available') {
-      lines.push('AI saw a strong use for this specific card in its hand.</p>');
+      lines.push('Kai saw a strong use for this specific card in its hand.</p>');
     } else if (lastDrawReason === 'low card improves hand') {
-      lines.push('This is a low-value card that reduces AI\'s score.</p>');
+      lines.push('This is a low-value card that reduces Kai\'s score.</p>');
     } else {
       lines.push('</p>');
     }
   } else {
-    lines.push('<p class="explain-step"><span class="explain-label">Draw:</span> AI drew from the draw pile.');
+    lines.push('<p class="explain-step"><span class="explain-label">Draw:</span> Kai drew from the draw pile.');
     if (lastDrawReason === 'deck offers better odds') {
-      lines.push(' The discard pile card didn\'t offer a good opportunity, so AI took a chance on an unknown card.</p>');
+      lines.push(' The discard pile card didn\'t offer a good opportunity, so Kai took a chance on an unknown card.</p>');
     } else {
       lines.push('</p>');
     }
@@ -1385,7 +1385,7 @@ function buildAiExplanation(gameState, drawnCard, drawChoice, action) {
   }
 
   if (action.type === 'discard') {
-    lines.push('<p class="explain-step"><span class="explain-label">Action:</span> AI discarded ' + drawnDesc + '.</p>');
+    lines.push('<p class="explain-step"><span class="explain-label">Action:</span> Kai discarded ' + drawnDesc + '.</p>');
     // Explain why
     var discardReasons = [];
     var oppNeeds = aiGetOpponentNeeds(gameState);
@@ -1394,12 +1394,12 @@ function buildAiExplanation(gameState, drawnCard, drawChoice, action) {
       discardReasons.push('High-value cards (8+) are risky to place unless they build toward a triad completion');
     }
     if (cardVal >= 0 && oppNeeds[cardVal] && oppNeeds[cardVal] >= 2) {
-      discardReasons.push('<em>Caution: this card may help your triads — but AI had no better option than to discard it</em>');
+      discardReasons.push('<em>Caution: this card may help your triads — but Kai had no better option than to discard it</em>');
     }
     if (discardReasons.length > 0) {
       lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> ' + discardReasons.join('. ') + '. When no placement improves your hand, discarding is the right play — don\'t waste a slot on a card that doesn\'t fit.</p>');
     } else {
-      lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> None of the placement options improved AI\'s hand enough to justify keeping this card. Sometimes the best move is to pass and wait for a better card.</p>');
+      lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> None of the placement options improved Kai\'s hand enough to justify keeping this card. Sometimes the best move is to pass and wait for a better card.</p>');
     }
   } else if (action.type === 'powerset-on-power') {
     var existingPower = aiHand.triads[action.triadIndex][action.position][0];
@@ -1408,7 +1408,7 @@ function buildAiExplanation(gameState, drawnCard, drawChoice, action) {
     var posLabel2 = action.position.charAt(0).toUpperCase() + action.position.slice(1);
     var faceVal = drawnCard.faceValue;
     var effectiveVal = faceVal + modValue;
-    lines.push('<p class="explain-step"><span class="explain-label">Action:</span> AI created a powerset in Triad ' + (action.triadIndex + 1) + ' (' + posLabel2 + '). The drawn ' + drawnDesc + ' sits on top of a Power ' + existingPower.faceValue + ' card, which acts as a modifier (' + modSign + modValue + '). The effective value is now ' + effectiveVal + ' instead of ' + faceVal + '.</p>');
+    lines.push('<p class="explain-step"><span class="explain-label">Action:</span> Kai created a powerset in Triad ' + (action.triadIndex + 1) + ' (' + posLabel2 + '). The drawn ' + drawnDesc + ' sits on top of a Power ' + existingPower.faceValue + ' card, which acts as a modifier (' + modSign + modValue + '). The effective value is now ' + effectiveVal + ' instead of ' + faceVal + '.</p>');
     lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> Powersets are powerful because they let you change a card\'s effective value. Using a negative modifier can turn a medium card into a low-value one, reducing points and potentially enabling triad completion.</p>');
   } else if (action.type === 'add-powerset') {
     var posLabel3 = action.position.charAt(0).toUpperCase() + action.position.slice(1);
@@ -1418,7 +1418,7 @@ function buildAiExplanation(gameState, drawnCard, drawChoice, action) {
     var modSign2 = modVal2 >= 0 ? '+' : '';
     var oldEffective = targetCards.length > 0 ? getPositionValue(targetCards) : 0;
     var newEffective = oldEffective + modVal2;
-    lines.push('<p class="explain-step"><span class="explain-label">Action:</span> AI used the drawn Power ' + drawnCard.faceValue + ' card as a modifier (' + modSign2 + modVal2 + ') beneath ' + targetDesc + ' in Triad ' + (action.triadIndex + 1) + ' (' + posLabel3 + '). The effective value changes from ' + oldEffective + ' to ' + newEffective + '.</p>');
+    lines.push('<p class="explain-step"><span class="explain-label">Action:</span> Kai used the drawn Power ' + drawnCard.faceValue + ' card as a modifier (' + modSign2 + modVal2 + ') beneath ' + targetDesc + ' in Triad ' + (action.triadIndex + 1) + ' (' + posLabel3 + '). The effective value changes from ' + oldEffective + ' to ' + newEffective + '.</p>');
     lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> Stacking a Power card as a modifier beneath an existing card changes its effective value without using a placement slot. This can bring a card closer to matching its neighbors for a set or run.</p>');
   } else if (action.type === 'replace') {
     var triad = aiHand.triads[action.triadIndex];
@@ -1429,7 +1429,7 @@ function buildAiExplanation(gameState, drawnCard, drawChoice, action) {
     var replacedVal = replacedWasRevealed ? getPositionValue(posCards) : -1;
 
     // Build the base placement message with replaced card info
-    var placementMsg = 'AI placed ' + drawnDesc + ' in Triad ' + (action.triadIndex + 1) + ' (' + posLabel + '), replacing ' + replacedDesc + '.';
+    var placementMsg = 'Kai placed ' + drawnDesc + ' in Triad ' + (action.triadIndex + 1) + ' (' + posLabel + '), replacing ' + replacedDesc + '.';
     if (replacedWasRevealed) {
       var newVal = drawnCard.type === 'kapow' ? 25 : (drawnCard.type === 'power' ? drawnCard.faceValue : drawnCard.faceValue);
       var pointChange = replacedVal - newVal;
@@ -1457,7 +1457,7 @@ function buildAiExplanation(gameState, drawnCard, drawChoice, action) {
         var tpCards = tp === triadPositions.indexOf(action.position) ? [newCard] : triad[triadPositions[tp]];
         if (tpCards.length > 0) triadPointsShed += getPositionValue(tpCards);
       }
-      lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> This completes the triad! All three cards are discarded, removing ' + triadPointsShed + ' points from AI\'s score. Completing triads is the most powerful move in the game.</p>');
+      lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> This completes the triad! All three cards are discarded, removing ' + triadPointsShed + ' points from Kai\'s score. Completing triads is the most powerful move in the game.</p>');
     } else {
       // Check if this placement would trigger going out (hand becomes fully revealed).
       // If so, skip the "future completion paths" explanation — they're irrelevant after going out.
@@ -1474,7 +1474,7 @@ function buildAiExplanation(gameState, drawnCard, drawChoice, action) {
       if (wouldGoOut) {
         // Placement triggers going out — explain the going-out decision instead
         var goOutScore = handEvalForGoOut.knownScore + (drawnCard.type === 'kapow' ? 25 : drawnCard.faceValue);
-        lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> This placement reveals the last face-down card, triggering going out. AI\'s score will be ' + goOutScore + ' points. The AI evaluated this was the best time to go out — the score is manageable and likely lower than your estimated final score.</p>');
+        lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> This placement reveals the last face-down card, triggering going out. Kai\'s score will be ' + goOutScore + ' points. Kai evaluated this was the best time to go out — the score is manageable and likely lower than your estimated final score.</p>');
       } else {
         // Analyze AFTER simulated placement to explain what this builds toward
         triad[action.position] = [newCard];
@@ -1533,7 +1533,7 @@ function buildAiExplanation(gameState, drawnCard, drawChoice, action) {
         if (neighborSynergy) {
           lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> ' + triadVisual + ' This card has good synergy with ' + synergyWith + ' — they could form part of a set or run together. When cards work well together, future cards are more likely to complete the triad.</p>');
         } else {
-          lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> ' + triadVisual + ' AI replaced a face-down card (unknown value) with a known low card to start building this triad. Even without obvious synergy yet, placing low-value cards reduces risk.</p>');
+          lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> ' + triadVisual + ' Kai replaced a face-down card (unknown value) with a known low card to start building this triad. Even without obvious synergy yet, placing low-value cards reduces risk.</p>');
         }
       } else if (replacedWasRevealed && replacedVal > newVal) {
         lines.push('<p class="explain-step"><span class="explain-label">Strategy:</span> ' + triadVisual + ' Reducing the value of cards that aren\'t part of a near-complete triad helps minimize your score if you can\'t complete the triad before the round ends.</p>');
@@ -1564,7 +1564,7 @@ function buildAiExplanation(gameState, drawnCard, drawChoice, action) {
     if (aiHand.triads[t].isDiscarded) discardedCount++;
   }
   if (discardedCount > 0) {
-    lines.push('<p class="explain-step"><span class="explain-label">Status:</span> AI has discarded ' + discardedCount + ' of 4 triads. Remaining hand score is approximately ' + handEval.knownScore + ' points (plus unknowns).</p>');
+    lines.push('<p class="explain-step"><span class="explain-label">Status:</span> Kai has discarded ' + discardedCount + ' of 4 triads. Remaining hand score is approximately ' + handEval.knownScore + ' points (plus unknowns).</p>');
   }
 
   aiMoveExplanation = lines.join('\n');
@@ -3745,15 +3745,14 @@ function renderCardHTML(card, faceDown, clickable, powersetValue) {
 
   if (card.type === 'fixed') {
     classes += ' card-fixed';
-    var html = '<div class="' + classes + '">' +
-      '<span class="card-value-top">' + card.faceValue + '</span>' +
-      '<span class="card-value-center">' + card.faceValue + '</span>' +
-      '<span class="card-type-label">Fixed</span>' +
-      '<span class="card-value-bottom">' + card.faceValue + '</span>';
+    var hasPowerset = powersetValue !== undefined && powersetValue !== null;
+    var typeLabel = hasPowerset ? 'Powerset' : 'Fixed';
+    var html = '<div class="' + classes + (hasPowerset ? ' has-powerset' : '') + '">' +
+      '<span class="card-type-label">' + typeLabel + '</span>' +
+      '<span class="card-value-center">' + card.faceValue + '</span>';
 
-    // Add powerset value on the card if present
-    if (powersetValue !== undefined && powersetValue !== null) {
-      html += '<span class="powerset-value-on-card">Powerset = ' + powersetValue + '</span>';
+    if (hasPowerset) {
+      html += '<span class="powerset-total">= ' + powersetValue + '</span>';
     }
 
     html += '</div>';
@@ -3762,16 +3761,23 @@ function renderCardHTML(card, faceDown, clickable, powersetValue) {
 
   if (card.type === 'power') {
     classes += ' card-power';
-    var html = '<div class="' + classes + '">' +
-      '<span class="card-type-label">Power</span>' +
-      '<span class="card-power-face-value">' + card.faceValue + '</span>' +
-      '<div class="card-power-modifiers">' +
-      '<span class="modifier-negative">' + card.modifiers[0] + '</span>' +
-      '<span class="modifier-positive">+' + card.modifiers[1] + '</span></div>';
+    var hasPowerset = powersetValue !== undefined && powersetValue !== null;
+    var html = '<div class="' + classes + (hasPowerset ? ' has-powerset' : '') + '">' +
+      '<div class="card-power-header">';
 
-    // Add powerset value on the card if present (when Power card is on top of another Power card)
-    if (powersetValue !== undefined && powersetValue !== null) {
-      html += '<span class="powerset-value-on-card">Powerset = ' + powersetValue + '</span>';
+    if (hasPowerset) {
+      html += '<span class="card-type-label">Powerset</span>';
+    } else {
+      html += '<span class="modifier-negative">' + card.modifiers[0] + '</span>' +
+        '<span class="card-type-label">Power</span>' +
+        '<span class="modifier-positive">+' + card.modifiers[1] + '</span>';
+    }
+
+    html += '</div>' +
+      '<span class="card-power-face-value">' + card.faceValue + '</span>';
+
+    if (hasPowerset) {
+      html += '<span class="powerset-total">= ' + powersetValue + '</span>';
     }
 
     html += '</div>';
@@ -4670,7 +4676,20 @@ function showRoundEnd() {
 
   title.textContent = 'Round ' + gameState.round + ' Complete!';
 
-  var html = '<table style="margin: 0 auto; text-align: left;">';
+  // Determine round winner
+  var playerScore = gameState.players[0].roundScores[gameState.players[0].roundScores.length - 1];
+  var aiScore = gameState.players[1].roundScores[gameState.players[1].roundScores.length - 1];
+  var winnerLine = '';
+  if (playerScore < aiScore) {
+    winnerLine = '<div class="round-winner-line player-won">' + gameState.players[0].name + ' wins the round!</div>';
+  } else if (aiScore < playerScore) {
+    winnerLine = '<div class="round-winner-line kai-won">Kai wins the round!</div>';
+  } else {
+    winnerLine = '<div class="round-winner-line tied">It\'s a tie!</div>';
+  }
+
+  var html = winnerLine;
+  html += '<table style="margin: 0 auto; text-align: left;">';
   for (var i = 0; i < gameState.players.length; i++) {
     var player = gameState.players[i];
     var roundScore = player.roundScores[player.roundScores.length - 1];
@@ -4755,7 +4774,7 @@ function playAITurn() {
   gameState.aiHighlight = null;
   aiMoveExplanation = ''; // clear previous explanation
   aiSwapHistory = []; // clear swap history to prevent stale data from previous turns
-  gameState.message = "AI's turn...";
+  gameState.message = "Kai's turn...";
   refreshUI();
 
   var needsReveal = gameState.needsFirstReveal && gameState.needsFirstReveal[gameState.currentPlayer];
@@ -4775,7 +4794,7 @@ function aiStepReveal() {
   revealCard(gameState.players[1].hand, reveals[0].triadIndex, reveals[0].position);
   var card1 = gameState.players[1].hand.triads[reveals[0].triadIndex][reveals[0].position][0];
   gameState.aiHighlight = { type: 'reveal', triadIndex: reveals[0].triadIndex, position: reveals[0].position };
-  gameState.message = 'AI reveals ' + cardDescription(card1) + ' in Triad ' + (reveals[0].triadIndex + 1) + '.';
+  gameState.message = 'Kai reveals ' + cardDescription(card1) + ' in Triad ' + (reveals[0].triadIndex + 1) + '.';
   logAction(gameState, 1, 'Reveals ' + cardDescription(card1) + ' in Triad ' + (reveals[0].triadIndex + 1) + ' (' + reveals[0].position + ')');
   refreshUI();
 
@@ -4784,7 +4803,7 @@ function aiStepReveal() {
     revealCard(gameState.players[1].hand, reveals[1].triadIndex, reveals[1].position);
     var card2 = gameState.players[1].hand.triads[reveals[1].triadIndex][reveals[1].position][0];
     gameState.aiHighlight = { type: 'reveal', triadIndex: reveals[1].triadIndex, position: reveals[1].position };
-    gameState.message = 'AI reveals ' + cardDescription(card2) + ' in Triad ' + (reveals[1].triadIndex + 1) + '.';
+    gameState.message = 'Kai reveals ' + cardDescription(card2) + ' in Triad ' + (reveals[1].triadIndex + 1) + '.';
     logAction(gameState, 1, 'Reveals ' + cardDescription(card2) + ' in Triad ' + (reveals[1].triadIndex + 1) + ' (' + reveals[1].position + ')');
     gameState.firstTurnReveals = 0;
     gameState.needsFirstReveal[gameState.currentPlayer] = false;
@@ -4816,7 +4835,7 @@ function aiStepDraw() {
   var drawnDesc = cardDescription(gameState.drawnCard);
   var pileLabel = drewFrom === 'discard' ? 'discard pile' : 'draw pile';
   gameState.aiHighlight = { type: 'draw', pile: drewFrom };
-  gameState.message = 'AI draws ' + drawnDesc + ' from the ' + pileLabel + '.';
+  gameState.message = 'Kai draws ' + drawnDesc + ' from the ' + pileLabel + '.';
   if (lastDrawReason) {
     logAction(gameState, 1, 'Reason: ' + lastDrawReason);
   }
@@ -4861,17 +4880,17 @@ function aiStepPlace(action, drewFromDiscard, drawnDesc) {
     var modSign = action.usePositive ? '+' : '';
     var existingPower = gameState.players[1].hand.triads[action.triadIndex][action.position][0];
     var modValue = action.usePositive ? existingPower.modifiers[1] : existingPower.modifiers[0];
-    gameState.message = 'AI creates powerset in Triad ' + (action.triadIndex + 1) + '.';
+    gameState.message = 'Kai creates powerset in Triad ' + (action.triadIndex + 1) + '.';
     handleCreatePowersetOnPower(gameState, action.triadIndex, action.position, action.usePositive);
     gameState.aiHighlight = { type: 'place', triadIndex: action.triadIndex, position: action.position };
   } else if (action.type === 'add-powerset') {
     var posLabel = action.position.charAt(0).toUpperCase() + action.position.slice(1);
-    gameState.message = 'AI uses modifier in Triad ' + (action.triadIndex + 1) + '.';
+    gameState.message = 'Kai uses modifier in Triad ' + (action.triadIndex + 1) + '.';
     handleAddPowerset(gameState, action.triadIndex, action.position, action.usePositive);
     gameState.aiHighlight = { type: 'place', triadIndex: action.triadIndex, position: action.position };
   } else if (action.type === 'replace') {
     var posLabel = action.position.charAt(0).toUpperCase() + action.position.slice(1);
-    gameState.message = 'AI places ' + drawnDesc + ' in Triad ' + (action.triadIndex + 1) + ' (' + posLabel + ').';
+    gameState.message = 'Kai places ' + drawnDesc + ' in Triad ' + (action.triadIndex + 1) + ' (' + posLabel + ').';
     handlePlaceCard(gameState, action.triadIndex, action.position);
     gameState.aiHighlight = { type: 'place', triadIndex: action.triadIndex, position: action.position };
   } else if (drewFromDiscard) {
@@ -4889,14 +4908,14 @@ function aiStepPlace(action, drewFromDiscard, drawnDesc) {
     }
     if (bestT >= 0) {
       var posLabel = bestP.charAt(0).toUpperCase() + bestP.slice(1);
-      gameState.message = 'AI places ' + drawnDesc + ' in Triad ' + (bestT + 1) + ' (' + posLabel + ').';
+      gameState.message = 'Kai places ' + drawnDesc + ' in Triad ' + (bestT + 1) + ' (' + posLabel + ').';
       handlePlaceCard(gameState, bestT, bestP);
       gameState.aiHighlight = { type: 'place', triadIndex: bestT, position: bestP };
     }
   } else {
     handleDiscard(gameState);
     gameState.aiHighlight = { type: 'discard' };
-    gameState.message = 'AI discards ' + drawnDesc + '.';
+    gameState.message = 'Kai discards ' + drawnDesc + '.';
   }
   if (lastActionReason) {
     logAction(gameState, 1, 'Reason: ' + lastActionReason);
@@ -5012,7 +5031,7 @@ function aiStepWithinTriadSwap() {
   if (bestSwap) {
     // Perform the single burial swap, then immediately proceed to discard — no loop.
     var explanationText = '<span class="explain-label">Within-Triad Swap:</span> ' +
-      'AI swaps KAPOW! from ' + bestSwap.from + ' to ' + bestSwap.to +
+      'Kai swaps KAPOW! from ' + bestSwap.from + ' to ' + bestSwap.to +
       ' position to bury it in the discard pile (prevents you from easily drawing it).';
     aiMoveExplanation += '<p class="explain-step">' + explanationText + '</p>';
 
@@ -5142,9 +5161,9 @@ function aiStepCheckSwap() {
     swapKapowCard(aiHand, swap.from.triadIndex, swap.from.position, swap.to.triadIndex, swap.to.position);
     var fromLabel = 'Triad ' + (swap.from.triadIndex + 1) + ' (' + swap.from.position + ')';
     var toLabel = 'Triad ' + (swap.to.triadIndex + 1) + ' (' + swap.to.position.charAt(0).toUpperCase() + swap.to.position.slice(1) + ')';
-    gameState.message = 'AI swaps KAPOW! from ' + fromLabel + ' to ' + toLabel + '.';
+    gameState.message = 'Kai swaps KAPOW! from ' + fromLabel + ' to ' + toLabel + '.';
     logAction(gameState, 1, 'Swaps KAPOW! from ' + fromLabel + ' to ' + toLabel);
-    aiMoveExplanation += '\n<p class="explain-step"><span class="explain-label">Swap:</span> AI moved a KAPOW! card from ' + fromLabel + ' to ' + toLabel + '. KAPOW! cards are wild (worth 0\u201312) but count as 25 points if left unplayed. Moving them to better positions helps complete triads or reduce risk.</p>';
+    aiMoveExplanation += '\n<p class="explain-step"><span class="explain-label">Swap:</span> Kai moved a KAPOW! card from ' + fromLabel + ' to ' + toLabel + '. KAPOW! cards are wild (worth 0\u201312) but count as 25 points if left unplayed. Moving them to better positions helps complete triads or reduce risk.</p>';
     gameState.aiHighlight = { type: 'place', triadIndex: swap.to.triadIndex, position: swap.to.position };
 
     // Capture triad state before checking for completions
