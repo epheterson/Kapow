@@ -41,6 +41,9 @@
 - Scorecard buttons reordered: Leaderboard → Add Note → Export | Share row
 - "Export Log" shortened to "Export"
 - Scorecard shows "Get Deck" link (+ Feedback/Privacy) when footer is hidden
+- Fix: modal functions (showBuyModal, showLeaderboard, hideLeaderboard, etc.) now defined — buttons were wired to nonexistent functions since original build
+- Privacy opt-out is now toggleable (tap to opt out, tap again to opt back in)
+- "Get Deck" link in scorecard styled with orange accent + arrow to match footer
 
 **v16 [Eric]** Telemetry system, analytics dashboard, scoreboard UX fix.
 - Game telemetry (telemetry.js): anonymous stats collection via Google Form → Sheet pipeline, player consent flow, abandonment tracking, GA4 events

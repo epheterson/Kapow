@@ -63,7 +63,7 @@
       <button class="buy-modal-close" onclick="document.getElementById('privacy-modal').classList.add('hidden')">&times;</button>
       <h2>Privacy</h2>
       <p>We collect game stats to improve the game, and email if provided.</p>
-      <button class="link-btn" style="margin-top:12px;opacity:0.6;" onclick="KapowTelemetry.revokeConsent();this.textContent='Done — opted out';this.disabled=true">Opt out of stats</button>
+      <button class="link-btn" id="privacy-toggle-btn" style="margin-top:12px;opacity:0.6;" onclick="togglePrivacy(this)">Opt out of stats</button>
     </div>
   </div>
 
@@ -256,10 +256,10 @@
         <span class="footer-sep">·</span>
         <a href="#" onclick="event.preventDefault();event.stopPropagation();document.getElementById('privacy-modal').classList.remove('hidden')">Privacy</a>
         <span class="footer-sep scorecard-deck-link">·</span>
-        <a href="#" class="scorecard-deck-link" onclick="event.preventDefault();event.stopPropagation();showBuyModal()">Get Deck</a>
+        <a href="#" class="scorecard-deck-link footer-buy" onclick="event.preventDefault();event.stopPropagation();showBuyModal()">Get the Card Game &rarr;</a>
       </div>
     </div>
-    <div class="scorecard-version">02-26-2026 v3</div>
+    <div class="scorecard-version">02-26-2026 v4</div>
     </div>
     <div id="ai-commentary"></div>
   </div>
@@ -490,6 +490,33 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(function() {});
     }
+
+    // Modal show/hide helpers
+    function showBuyModal() { document.getElementById('kapow-buy-modal').classList.remove('hidden'); }
+    function hideBuyModal() { document.getElementById('kapow-buy-modal').classList.add('hidden'); }
+    function showLeaderboard() { document.getElementById('leaderboard-modal').classList.remove('hidden'); if (typeof fetchLeaderboard === 'function') fetchLeaderboard(); }
+    function hideLeaderboard() { document.getElementById('leaderboard-modal').classList.add('hidden'); }
+    function hideLeaderboardSubmit() { document.getElementById('leaderboard-submit-modal').classList.add('hidden'); }
+    function addGameNote() { if (typeof window._addGameNote === 'function') window._addGameNote(); }
+    function shareGameResults() { if (typeof window._shareGameResults === 'function') window._shareGameResults(); }
+
+    // Privacy opt-in/opt-out toggle
+    function togglePrivacy(btn) {
+      if (KapowTelemetry.hasConsent()) {
+        KapowTelemetry.revokeConsent();
+        btn.textContent = 'Opted out · Tap to opt back in';
+      } else {
+        KapowTelemetry.giveConsent();
+        btn.textContent = 'Opt out of stats';
+      }
+    }
+    // Update privacy button state when modal opens
+    document.addEventListener('click', function() {
+      var btn = document.getElementById('privacy-toggle-btn');
+      if (btn && typeof KapowTelemetry !== 'undefined') {
+        btn.textContent = KapowTelemetry.hasConsent() ? 'Opt out of stats' : 'Opted out · Tap to opt back in';
+      }
+    });
 
     // Close scorecard sidebar on tap (mobile overlay)
     function closeSidebar(e) {
