@@ -38,6 +38,9 @@
 - Power card face value padding increased for more breathing room
 - "Understand Kai's Move" button toned down (no longer bright blue pulsing glow, matches other button style)
 - Desktop footer hidden at viewport heights under 920px to prevent overlapping cards
+- Scorecard buttons reordered: Leaderboard → Add Note → Export | Share row
+- "Export Log" shortened to "Export"
+- Scorecard shows "Get Deck" link (+ Feedback/Privacy) when footer is hidden
 
 **v16 [Eric]** Telemetry system, analytics dashboard, scoreboard UX fix.
 - Game telemetry (telemetry.js): anonymous stats collection via Google Form → Sheet pipeline, player consent flow, abandonment tracking, GA4 events

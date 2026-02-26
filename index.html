@@ -245,19 +245,21 @@
     </table>
     <div id="scorecard-notes"></div>
     <div class="scorecard-actions">
-      <div class="scorecard-actions-row">
-        <button id="btn-share-game" class="action-btn scorecard-action-btn" onclick="event.stopPropagation();shareGameResults()">Share</button>
-        <button class="action-btn scorecard-action-btn" onclick="event.stopPropagation();showLeaderboard()">Leaderboard</button>
-      </div>
+      <button class="action-btn scorecard-action-btn" onclick="event.stopPropagation();showLeaderboard()">Leaderboard</button>
       <button id="btn-add-note" class="action-btn scorecard-action-btn" onclick="event.stopPropagation();addGameNote()">Add Note</button>
-      <button id="btn-export-log" class="action-btn scorecard-action-btn" onclick="event.stopPropagation()">Export Log</button>
+      <div class="scorecard-actions-row">
+        <button id="btn-export-log" class="action-btn scorecard-action-btn" onclick="event.stopPropagation()">Export</button>
+        <button id="btn-share-game" class="action-btn scorecard-action-btn" onclick="event.stopPropagation();shareGameResults()">Share</button>
+      </div>
       <div class="scorecard-links">
         <a href="#" onclick="event.preventDefault();event.stopPropagation();showFeedbackModal()">Feedback</a>
         <span class="footer-sep">·</span>
         <a href="#" onclick="event.preventDefault();event.stopPropagation();document.getElementById('privacy-modal').classList.remove('hidden')">Privacy</a>
+        <span class="footer-sep scorecard-deck-link">·</span>
+        <a href="#" class="scorecard-deck-link" onclick="event.preventDefault();event.stopPropagation();showBuyModal()">Get Deck</a>
       </div>
     </div>
-    <div class="scorecard-version">02-26-2026 v2</div>
+    <div class="scorecard-version">02-26-2026 v3</div>
     </div>
     <div id="ai-commentary"></div>
   </div>

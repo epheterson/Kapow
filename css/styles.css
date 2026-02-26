@@ -3237,6 +3237,18 @@ body:has(#page-layout:not(.hidden)) #help-toggle {
   opacity: 0.3;
 }
 
+/* "Get Deck" link in scorecard: shown on mobile (no footer) and short desktop (footer hidden) */
+.scorecard-deck-link {
+  display: inline;
+}
+
+@media (min-width: 769px) and (min-height: 921px) {
+  /* Footer is visible on tall desktops, so hide the duplicate deck link */
+  .scorecard-deck-link {
+    display: none;
+  }
+}
+
 /* ========================================
    LEADERBOARD
    ======================================== */
