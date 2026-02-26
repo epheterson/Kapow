@@ -679,7 +679,7 @@ function logHandState(state, playerIndex) {
 
 function exportLog(silent) {
   if (!gameState || gameState.actionLog.length === 0) {
-    if (!silent) alert('No log entries to export.');
+    if (!silent && typeof showToast === 'function') showToast('No log entries to export.');
     return;
   }
   var header = 'KAPOW! Game Log\n';
@@ -687,6 +687,13 @@ function exportLog(silent) {
   header += 'Date: ' + new Date().toLocaleString() + '\n';
   header += '================================\n\n';
   var logText = header + gameState.actionLog.join('\n');
+  // Append player notes if any
+  if (typeof gameNotes !== 'undefined' && gameNotes.length > 0) {
+    logText += '\n\n================================\nPLAYER NOTES\n================================\n';
+    for (var i = 0; i < gameNotes.length; i++) {
+      logText += '[' + gameNotes[i].round + '] ' + gameNotes[i].text + '\n';
+    }
+  }
   var blob = new Blob([logText], { type: 'text/plain' });
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
@@ -4650,8 +4657,11 @@ function onNewGame() {
   aiMoveExplanation = '';
   document.getElementById('explain-modal').classList.add('hidden');
 
-  // Clear the log for the new game
+  // Clear the log and notes for the new game
   try { localStorage.removeItem('kapow-log'); } catch(e) {}
+  if (typeof gameNotes !== 'undefined') { gameNotes.length = 0; }
+  var notesEl = document.getElementById('scorecard-notes');
+  if (notesEl) notesEl.innerHTML = '';
 
   // Start a fresh game with the same player name
   gameState = createGameState([playerName, 'AI']);
@@ -4738,6 +4748,11 @@ function showGameOver() {
 
   scores.innerHTML = html;
   screen.classList.remove('hidden');
+
+  // Prompt leaderboard submit if player won
+  if (winnerIndex === 0 && typeof promptLeaderboardSubmit === 'function') {
+    setTimeout(promptLeaderboardSubmit, 1500);
+  }
 }
 
 // AI Turn — multi-step sequence with educational visibility

@@ -44,6 +44,13 @@
 - Fix: modal functions (showBuyModal, showLeaderboard, hideLeaderboard, etc.) now defined — buttons were wired to nonexistent functions since original build
 - Privacy opt-out is now toggleable (tap to opt out, tap again to opt back in)
 - "Get Deck" link in scorecard styled with orange accent + arrow to match footer
+- Leaderboard: fetches real data from telemetry API, shows top 25 lowest-score winners, medal emojis for top 3
+- Leaderboard submit: prompts player after winning a game to submit score with name/email, sends via telemetry form
+- Add Note: inline input in scorecard (no browser prompt dialog), notes shown below scores with round labels
+- Share: Web Share API on mobile, clipboard fallback on desktop, generates shareable game summary with link
+- Export: includes player notes in exported game log
+- Toast notification system (replaces alert dialogs)
+- Notes cleared on new game start
 
 **v16 [Eric]** Telemetry system, analytics dashboard, scoreboard UX fix.
 - Game telemetry (telemetry.js): anonymous stats collection via Google Form → Sheet pipeline, player consent flow, abandonment tracking, GA4 events

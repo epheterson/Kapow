@@ -259,7 +259,7 @@
         <a href="#" class="scorecard-deck-link footer-buy" onclick="event.preventDefault();event.stopPropagation();showBuyModal()">Get the Card Game &rarr;</a>
       </div>
     </div>
-    <div class="scorecard-version">02-26-2026 v4</div>
+    <div class="scorecard-version">02-26-2026 v5</div>
     </div>
     <div id="ai-commentary"></div>
   </div>
@@ -325,7 +325,7 @@
       <button class="buy-modal-close" onclick="hideLeaderboardSubmit()">&times;</button>
       <h2>Join the Leaderboard!</h2>
       <p class="lb-submit-subtitle">Your score: <strong id="lb-submit-score">0</strong> points</p>
-      <div class="lb-submit-form">
+      <div id="lb-submit-form-wrap" class="lb-submit-form">
         <input type="text" id="lb-submit-name" placeholder="Your name" maxlength="20" class="buy-modal-input">
         <input type="email" id="lb-submit-email" placeholder="Email (for leaderboard ID)" class="buy-modal-input">
         <p class="lb-submit-note">Email is used to track your best score &mdash; not shared publicly.</p>
@@ -494,13 +494,232 @@
     // Modal show/hide helpers
     function showBuyModal() { document.getElementById('kapow-buy-modal').classList.remove('hidden'); }
     function hideBuyModal() { document.getElementById('kapow-buy-modal').classList.add('hidden'); }
-    function showLeaderboard() { document.getElementById('leaderboard-modal').classList.remove('hidden'); if (typeof fetchLeaderboard === 'function') fetchLeaderboard(); }
+    function showLeaderboard() { document.getElementById('leaderboard-modal').classList.remove('hidden'); fetchLeaderboard(); }
     function hideLeaderboard() { document.getElementById('leaderboard-modal').classList.add('hidden'); }
-    function hideLeaderboardSubmit() { document.getElementById('leaderboard-submit-modal').classList.add('hidden'); }
-    function addGameNote() { if (typeof window._addGameNote === 'function') window._addGameNote(); }
-    function shareGameResults() { if (typeof window._shareGameResults === 'function') window._shareGameResults(); }
+    function hideLeaderboardSubmit() {
+      document.getElementById('leaderboard-submit-modal').classList.add('hidden');
+      // Reset form for next use
+      document.getElementById('lb-submit-form-wrap').classList.remove('hidden');
+      document.getElementById('lb-submit-thanks').classList.add('hidden');
+    }
 
-    // Privacy opt-in/opt-out toggle
+    // ── Leaderboard ──────────────────────────
+    var LEADERBOARD_API = 'https://script.google.com/macros/s/AKfycbx9duQ_lbLI-5Tow2hxf011qkshJ70aJZ4Alxf3D2mrJ32Va93hnDEzvR7B4OPjvm8X/exec';
+    var leaderboardCache = null;
+
+    function fetchLeaderboard() {
+      var tbody = document.getElementById('leaderboard-body');
+      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:20px;"><div class="loading-cards"><span></span><span></span><span></span></div></td></tr>';
+
+      fetch(LEADERBOARD_API)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          // Filter completed games, find best (lowest) score per player
+          var bestScores = {};
+          for (var i = 0; i < data.length; i++) {
+            var g = data[i];
+            if (g.status !== 'completed' || g.winner !== 'player') continue;
+            var key = (g.player_email || g.player_id || '').toLowerCase();
+            var name = g.player_name || 'Anonymous';
+            var score = parseInt(g.player_score);
+            if (isNaN(score)) continue;
+            if (!bestScores[key] || score < bestScores[key].score) {
+              bestScores[key] = { name: name, score: score };
+            }
+          }
+          // Sort by score ascending (lowest = best)
+          var entries = [];
+          for (var k in bestScores) entries.push(bestScores[k]);
+          entries.sort(function(a, b) { return a.score - b.score; });
+          leaderboardCache = entries.slice(0, 25);
+          renderLeaderboardRows(leaderboardCache);
+        })
+        .catch(function() {
+          tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:20px;opacity:0.5;">Could not load leaderboard</td></tr>';
+        });
+    }
+
+    function renderLeaderboardRows(entries) {
+      var tbody = document.getElementById('leaderboard-body');
+      if (!entries.length) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:20px;opacity:0.5;">No scores yet — be the first!</td></tr>';
+        return;
+      }
+      var html = '';
+      for (var i = 0; i < entries.length; i++) {
+        var medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+        html += '<tr><td class="lb-rank">' + medal + '</td><td class="lb-name">' +
+          escapeHtml(entries[i].name) + '</td><td class="lb-score">' + entries[i].score + '</td></tr>';
+      }
+      tbody.innerHTML = html;
+    }
+
+    function escapeHtml(str) {
+      var div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // Prompt leaderboard submit after game over (if player won)
+    function promptLeaderboardSubmit() {
+      if (!gameState || gameState.phase !== 'gameOver') return;
+      var playerScore = gameState.players[0].totalScore;
+      var kaiScore = gameState.players[1].totalScore;
+      if (playerScore >= kaiScore) return; // Only winners
+      document.getElementById('lb-submit-score').textContent = playerScore;
+      document.getElementById('lb-submit-name').value = gameState.players[0].name || '';
+      var savedEmail = '';
+      try { savedEmail = localStorage.getItem('kapow-email') || ''; } catch(e) {}
+      document.getElementById('lb-submit-email').value = savedEmail;
+      document.getElementById('lb-submit-form-wrap').classList.remove('hidden');
+      document.getElementById('lb-submit-thanks').classList.add('hidden');
+      document.getElementById('leaderboard-submit-modal').classList.remove('hidden');
+    }
+
+    function confirmLeaderboardSubmit() {
+      var name = document.getElementById('lb-submit-name').value.trim();
+      var email = document.getElementById('lb-submit-email').value.trim();
+      if (!name) { document.getElementById('lb-submit-name').focus(); return; }
+      // Save email for future use
+      if (email) { try { localStorage.setItem('kapow-email', email); } catch(e) {} }
+      // Submit via telemetry form (same pipeline, marked as leaderboard entry)
+      var score = parseInt(document.getElementById('lb-submit-score').textContent);
+      var payload = {
+        game_id: 'lb_' + Date.now(),
+        session_id: 'leaderboard',
+        player_id: KapowTelemetry.getPlayerId(),
+        player_email: email,
+        player_name: name,
+        status: 'completed',
+        timestamp: new Date().toISOString(),
+        rounds_played: gameState ? gameState.round : 0,
+        player_score: score,
+        kai_score: gameState ? gameState.players[1].totalScore : 0,
+        winner: 'player',
+        round_scores: gameState ? JSON.stringify({ player: gameState.players[0].roundScores, kai: gameState.players[1].roundScores }) : '{}',
+        game_duration_sec: 0,
+        leaderboard_submit: true
+      };
+      // Send to the same Google Form
+      var formData = new FormData();
+      formData.append('entry.67486629', JSON.stringify(payload));
+      fetch('https://docs.google.com/forms/d/1loyHdfBTCz4bLtX01aNWB6u6e4rZzh6ZEHpz-e6SKiY/formResponse', {
+        method: 'POST', body: formData, mode: 'no-cors'
+      });
+      // Show success
+      document.getElementById('lb-submit-form-wrap').classList.add('hidden');
+      document.getElementById('lb-submit-thanks').classList.remove('hidden');
+      setTimeout(function() { hideLeaderboardSubmit(); }, 2000);
+    }
+
+    // ── Add Game Note ────────────────────────
+    var gameNotes = [];
+
+    function addGameNote() {
+      if (!gameState) return;
+      var container = document.getElementById('scorecard-notes');
+      // If input already open, focus it
+      var existing = container.querySelector('.note-input');
+      if (existing) { existing.focus(); return; }
+      // Create inline input
+      var wrap = document.createElement('div');
+      wrap.style.cssText = 'margin-top:8px;display:flex;gap:6px;';
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'note-input';
+      input.placeholder = 'Add a note...';
+      input.maxLength = 100;
+      input.style.cssText = 'flex:1;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:6px 10px;color:#fff;font-size:12px;outline:none;';
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') saveNote(input, wrap);
+        if (e.key === 'Escape') wrap.remove();
+        e.stopPropagation();
+      });
+      var btn = document.createElement('button');
+      btn.textContent = 'Save';
+      btn.className = 'action-btn';
+      btn.style.cssText = 'font-size:11px;padding:4px 10px;min-width:0;';
+      btn.addEventListener('click', function(e) { e.stopPropagation(); saveNote(input, wrap); });
+      wrap.appendChild(input);
+      wrap.appendChild(btn);
+      container.appendChild(wrap);
+      input.focus();
+    }
+
+    function saveNote(input, wrap) {
+      var text = input.value.trim();
+      if (!text) { wrap.remove(); return; }
+      var roundLabel = gameState.phase === 'gameOver' ? 'End' : 'R' + gameState.round;
+      gameNotes.push({ round: roundLabel, text: text });
+      wrap.remove();
+      renderGameNotes();
+    }
+
+    function renderGameNotes() {
+      var container = document.getElementById('scorecard-notes');
+      if (!container || gameNotes.length === 0) return;
+      var html = '';
+      for (var i = 0; i < gameNotes.length; i++) {
+        html += '<div class="scorecard-note"><span class="note-round">' +
+          escapeHtml(gameNotes[i].round) + '</span> ' +
+          escapeHtml(gameNotes[i].text) + '</div>';
+      }
+      container.innerHTML = html;
+    }
+
+    // ── Share Game Results ───────────────────
+    function shareGameResults() {
+      if (!gameState) return;
+      var p = gameState.players[0];
+      var k = gameState.players[1];
+      var isOver = gameState.phase === 'gameOver';
+      var winner = p.totalScore < k.totalScore ? p.name : 'Kai';
+      var status = isOver ? (winner + ' wins!') : ('Round ' + gameState.round);
+      var text = 'KAPOW! ' + status + '\n' +
+        p.name + ': ' + p.totalScore + ' · Kai: ' + k.totalScore + '\n';
+      if (isOver) {
+        text += 'Rounds: ' + gameState.round + '\n';
+      }
+      text += 'https://epheterson.github.io/Kapow/';
+
+      if (navigator.share) {
+        navigator.share({ title: 'KAPOW! Card Game', text: text }).catch(function() {});
+      } else if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(function() {
+          showToast('Results copied to clipboard!');
+        }).catch(function() {
+          fallbackCopy(text);
+        });
+      } else {
+        fallbackCopy(text);
+      }
+    }
+
+    function fallbackCopy(text) {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('Results copied to clipboard!');
+    }
+
+    function showToast(msg) {
+      var toast = document.createElement('div');
+      toast.textContent = msg;
+      toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);color:#fff;padding:10px 20px;border-radius:8px;font-size:14px;z-index:999;pointer-events:none;opacity:0;transition:opacity 0.3s;';
+      document.body.appendChild(toast);
+      requestAnimationFrame(function() { toast.style.opacity = '1'; });
+      setTimeout(function() {
+        toast.style.opacity = '0';
+        setTimeout(function() { document.body.removeChild(toast); }, 300);
+      }, 2000);
+    }
+
+    // ── Privacy toggle ──────────────────────
     function togglePrivacy(btn) {
       if (KapowTelemetry.hasConsent()) {
         KapowTelemetry.revokeConsent();
