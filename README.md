@@ -1,8 +1,12 @@
 # KAPOW! Card Game
 
-An original rummy-style card game with a novel twist — power card modifiers, KAPOW! wild cards, and triad completion mechanics. Built in vanilla HTML/CSS/JavaScript with a built-in opponent named **Kai**. No frameworks, no dependencies, playable in any browser.
+> **This repo has been merged into [cpheterson/Kapow](https://github.com/cpheterson/Kapow).** All future development happens there.
+>
+> **[Play the latest version →](https://cpheterson.github.io/Kapow/)**
 
-**[Play now →](https://epheterson.github.io/Kapow/)**
+---
+
+An original rummy-style card game with a novel twist — power card modifiers, KAPOW! wild cards, and triad completion mechanics. Built in vanilla HTML/CSS/JavaScript with a built-in opponent named **Kai**. No frameworks, no dependencies, playable in any browser.
 
 ---
 
@@ -95,7 +99,7 @@ Kai evaluates every possible action each turn:
 No build tools. No bundler. Auto-deploys to GitHub Pages on push to `main`.
 
 ```bash
-git clone https://github.com/epheterson/Kapow.git
+git clone https://github.com/cpheterson/Kapow.git
 cd Kapow
 npm install                          # Test runner (Vitest)
 git config core.hooksPath hooks      # Pre-commit: tests + auto-version bump
